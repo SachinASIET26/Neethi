@@ -1,0 +1,129 @@
+# =============================================================================
+# Neethi AI — Consolidated Requirements
+# =============================================================================
+#
+# Single requirements file covering all phases (1–6) and environments.
+# Merges: backend/requirements.txt + requirements-lightning.txt +
+#         requirements-phase3-lightning.txt
+#
+# INSTALLATION NOTES
+# ------------------
+# Local (CPU) development:
+#   pip install -r requirements.txt
+#
+# Lightning AI GPU (do NOT reinstall torch — CUDA version is pre-installed):
+#   pip install -r requirements.txt --constraint constraints-lightning.txt
+#   Or simply skip the torch line by installing all other packages manually:
+#     pip install -r requirements.txt
+#   Then verify GPU: python -c "import torch; print(torch.cuda.is_available())"
+#   If torch downgraded to CPU: pip install torch --index-url https://download.pytorch.org/whl/cu121
+#
+# BGE-M3 model (~2.3 GB) downloads automatically on first use to:
+#   ~/.cache/huggingface/hub/
+#
+# ENVIRONMENT VARIABLES REQUIRED
+# --------------------------------
+#   DATABASE_URL        Supabase PostgreSQL connection string
+#   QDRANT_URL          Qdrant Cloud cluster endpoint
+#   QDRANT_API_KEY      Qdrant Cloud API key
+#   GROQ_API_KEY        Groq API key (Llama 3.3 70B — query classification)
+#   DEEPSEEK_API_KEY    DeepSeek API key (legal reasoning, citation verification)
+#   ANTHROPIC_API_KEY   Anthropic API key (document drafting — Claude Sonnet)
+#   SARVAM_API_KEY      Sarvam AI key (translation + TTS/STT)
+#   SERP_API_KEY        SerpAPI key (nearby legal resources)
+#   JWT_SECRET_KEY      Secret for JWT token signing
+#   REDIS_URL           Upstash Redis URL (response caching)
+#
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Web Framework
+# ---------------------------------------------------------------------------
+fastapi==0.115.6
+uvicorn[standard]==0.34.0        # ASGI server with WebSocket + HTTP/2 support
+python-multipart==0.0.20         # Multipart form / file upload support
+
+# ---------------------------------------------------------------------------
+# Database — PostgreSQL (async, Supabase)
+# ---------------------------------------------------------------------------
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0                  # Async PostgreSQL driver
+alembic==1.13.3                  # Schema migrations
+psycopg2-binary==2.9.10          # Sync driver for Alembic env.py
+
+# ---------------------------------------------------------------------------
+# Vector Database — Qdrant
+# ---------------------------------------------------------------------------
+qdrant-client==1.12.0
+
+# ---------------------------------------------------------------------------
+# AI / LLM Orchestration — CrewAI
+# ---------------------------------------------------------------------------
+crewai==1.9.2
+litellm==1.81.5                  # Unified LLM abstraction (Groq, DeepSeek, Claude)
+apscheduler==3.10.4              # Required by litellm internal scheduler
+nest_asyncio==1.6.0              # Nested asyncio loops — required for CrewAI akickoff()
+
+# ---------------------------------------------------------------------------
+# LLM Providers
+# ---------------------------------------------------------------------------
+groq==1.0.0                      # Groq — Llama 3.3 70B (query classification, formatting)
+anthropic==0.40.0                # Claude Sonnet (document drafting)
+
+# ---------------------------------------------------------------------------
+# Embeddings & Re-ranking
+# ---------------------------------------------------------------------------
+FlagEmbedding==1.3.3             # BGE-M3: dense + sparse multi-vector in one pass (GPU recommended)
+sentence-transformers==3.3.1     # CrossEncoder reranker: ms-marco-MiniLM-L-6-v2
+torch==2.5.1                     # Required by sentence-transformers (CPU fallback; GPU auto-detected)
+                                 # NOTE: On Lightning AI, do NOT reinstall torch — CUDA version is pre-installed
+
+# ---------------------------------------------------------------------------
+# PDF Processing — Data Ingestion Pipeline
+# ---------------------------------------------------------------------------
+pymupdf==1.24.14                 # fitz — coordinate-based PDF text extraction
+pdfplumber==0.11.4               # Table extraction fallback
+pytesseract==0.3.13              # OCR for scanned PDFs
+Pillow==11.0.0                   # Required by pytesseract
+
+# ---------------------------------------------------------------------------
+# Document Generation — Legal Drafting
+# ---------------------------------------------------------------------------
+Jinja2==3.1.4                    # Template engine for legal document drafts
+weasyprint==62.3                 # HTML/CSS → PDF generation
+lxml==5.3.0                      # XML/HTML processing (weasyprint dependency)
+reportlab==4.2.5                 # Alternative PDF generation for exports
+
+# ---------------------------------------------------------------------------
+# Authentication & Security
+# ---------------------------------------------------------------------------
+python-jose[cryptography]==3.3.0 # JWT encode / decode
+passlib[bcrypt]==1.7.4           # Password hashing
+email-validator==2.2.0           # Pydantic EmailStr validation
+
+# ---------------------------------------------------------------------------
+# Caching — Redis (Upstash)
+# ---------------------------------------------------------------------------
+redis[asyncio]==5.2.1
+
+# ---------------------------------------------------------------------------
+# HTTP & External APIs
+# ---------------------------------------------------------------------------
+httpx==0.28.0                    # Async HTTP client (also FastAPI TestClient)
+
+# ---------------------------------------------------------------------------
+# Configuration & Environment
+# ---------------------------------------------------------------------------
+python-dotenv==1.0.1
+
+# ---------------------------------------------------------------------------
+# Logging & Observability
+# ---------------------------------------------------------------------------
+structlog==24.4.0
+
+# ---------------------------------------------------------------------------
+# Testing
+# ---------------------------------------------------------------------------
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0

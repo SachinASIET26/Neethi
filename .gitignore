@@ -1,0 +1,119 @@
+# =============================================================================
+# Neethi AI — .gitignore
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+.Python
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# ---------------------------------------------------------------------------
+# Environment & Secrets — NEVER commit real credentials
+# ---------------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ---------------------------------------------------------------------------
+# Logs — All runtime / test logs excluded
+# ---------------------------------------------------------------------------
+logs/
+*.log
+*.log.*
+
+# ---------------------------------------------------------------------------
+# Project Documents — Internal reports, PDFs, conference templates
+# ---------------------------------------------------------------------------
+Project Documents/
+
+# ---------------------------------------------------------------------------
+# Large Binary Data — PDFs must be downloaded separately (see docs/indian_legal_data_sources.md)
+# ---------------------------------------------------------------------------
+data/raw/acts/*.pdf
+data/raw/sarvam_out_bns.zip
+data/raw/pdf_text_superscripts.txt
+docs/references/*.pdf
+
+# ---------------------------------------------------------------------------
+# Generated / Processed Data — Reproducible from pipeline, not committed
+# ---------------------------------------------------------------------------
+data/processed/
+data/audit/activation_report.json
+data/raw/judgments/
+data/raw/notifications/
+
+# ---------------------------------------------------------------------------
+# Internal Dev Docs — Session logs, progress reports, archived design docs
+# ---------------------------------------------------------------------------
+docs/sessions/
+docs/progress/
+docs/archive/
+docs/dev_report.md
+docs/project_diary_weeks_5_to_16.md
+docs/lightning_ai_commands.md
+
+# ---------------------------------------------------------------------------
+# Claude Code — Local agent settings
+# ---------------------------------------------------------------------------
+.claude/
+
+# ---------------------------------------------------------------------------
+# Node.js / Next.js (frontend)
+# ---------------------------------------------------------------------------
+node_modules/
+.next/
+out/
+.vercel/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---------------------------------------------------------------------------
+# OS & Editor
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# ---------------------------------------------------------------------------
+# Alembic — auto-generated migration cache
+# ---------------------------------------------------------------------------
+backend/db/migrations/versions/__pycache__/
+
+# ---------------------------------------------------------------------------
+# Jupyter
+# ---------------------------------------------------------------------------
+.ipynb_checkpoints/
+
+# ---------------------------------------------------------------------------
+# Stitch HTML prototypes — keep sources, exclude any build artifacts
+# ---------------------------------------------------------------------------
+stitch/download.ps1

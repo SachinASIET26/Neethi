@@ -1,0 +1,7 @@
+# Neethi AI — Backend Requirements
+# All dependencies are consolidated in the root requirements.txt
+# Install from the project root:
+#   pip install -r requirements.txt
+#
+# See /requirements.txt for the full consolidated dependency list.
+-r ../requirements.txt

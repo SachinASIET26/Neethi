@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Neethi AI - Legal Command Center</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#db7706",
+                        "background-light": "#f8f7f5",
+                        "background-dark": "#0f172a",
+                        "slate": {
+                            950: "#020617",
+                            900: "#0f172a",
+                            800: "#1e293b",
+                            700: "#334155",
+                            600: "#475569",
+                            100: "#f1f5f9",
+                        }
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased font-display">
+<div class="flex h-screen overflow-hidden">
+<!-- Sidebar -->
+<aside class="w-64 flex-shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col">
+<div class="p-6 flex items-center gap-3">
+<div class="size-8 bg-primary rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-xl">gavel</span>
+</div>
+<div>
+<h1 class="text-lg font-bold leading-none">Neethi AI</h1>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Legal Command Center</p>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary font-medium" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span>AI Research</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">folder_open</span>
+<span>Case Management</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">description</span>
+<span>Document Analysis</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">group</span>
+<span>Team</span>
+</a>
+</nav>
+<div class="p-4 border-t border-slate-200 dark:border-slate-800">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>Settings</span>
+</a>
+<div class="mt-4 p-3 bg-slate-100 dark:bg-slate-900 rounded-xl">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-full bg-slate-300 dark:bg-slate-700 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Professional lawyer profile portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDisKCHsv1xBKwEYIQ6v2Tsh9SnDTRVtsluLjsZAuPwb0JzRAtUEBMwojc5QA3k4U_KY4yj-Xq629Gj3jpmKp-R9pcgu-RasDCGfKeJVsUMdo2w2BdMKyROvUrgxMrOodUFbLt4D2etXI5x3B3z76uaG6WlqQC4DRqwQbNa8yELzB4kBm6pqcgbtwrUDhlzkmzrYduC0_vQV0j-wsTHMnYEUUX3Z129Y3aLU8rpcBgq_Z5doQj6prQ-5Z8OQFGc-9Oxs9v05GH5gSw"/>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="text-sm font-semibold truncate">Jonathan Vance</p>
+<p class="text-xs text-slate-500 truncate">Senior Counsel</p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col overflow-hidden">
+<!-- Header -->
+<header class="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex items-center justify-between px-8 z-10">
+<div class="flex-1 max-w-xl">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
+<input class="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm" placeholder="Search case files, statutes, or team members..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-950"></span>
+</button>
+<button class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-sm">add</span>
+<span>New Case</span>
+</button>
+</div>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-900 p-8">
+<div class="max-w-7xl mx-auto space-y-8">
+<!-- Welcome Section -->
+<div class="flex justify-between items-end">
+<div>
+<h2 class="text-2xl font-bold">Good morning, Counsel Vance</h2>
+<p class="text-slate-500 dark:text-slate-400">Here is what's happening across your active cases today.</p>
+</div>
+<div class="text-right">
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400">Oct 24, 2023</p>
+<p class="text-sm font-semibold text-primary">Next Hearing: 2:00 PM</p>
+</div>
+</div>
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-white dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex justify-between items-start">
+<span class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Consultations</span>
+<span class="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-xs font-bold px-2 py-1 rounded">+12%</span>
+</div>
+<p class="text-3xl font-bold mt-2">1,284</p>
+<div class="mt-4 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="w-3/4 h-full bg-primary"></div>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex justify-between items-start">
+<span class="text-sm font-medium text-slate-500 dark:text-slate-400">Open Cases</span>
+<span class="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-xs font-bold px-2 py-1 rounded">+5%</span>
+</div>
+<p class="text-3xl font-bold mt-2">42</p>
+<div class="mt-4 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="w-1/2 h-full bg-primary"></div>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex justify-between items-start">
+<span class="text-sm font-medium text-slate-500 dark:text-slate-400">Citations Found</span>
+<span class="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-xs font-bold px-2 py-1 rounded">+24%</span>
+</div>
+<p class="text-3xl font-bold mt-2">856</p>
+<div class="mt-4 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="w-5/6 h-full bg-primary"></div>
+</div>
+</div>
+</div>
+<!-- Dashboard Bottom Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Recent Activity -->
+<div class="lg:col-span-2 bg-white dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+<div class="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+<h3 class="font-bold text-lg">Recent Legal Queries</h3>
+<button class="text-sm text-primary font-medium hover:underline">View All</button>
+</div>
+<div class="divide-y divide-slate-100 dark:divide-slate-800">
+<div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-900/50 flex items-center gap-4 transition-colors">
+<div class="size-10 rounded bg-primary/10 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined">history</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-semibold truncate">Liability analysis for slip and fall case</p>
+<p class="text-xs text-slate-500">Query ID: #8821 • 2 mins ago</p>
+</div>
+<div class="text-right">
+<p class="text-xs font-medium text-slate-400">10:45 AM</p>
+<span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">In Progress</span>
+</div>
+</div>
+<div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-900/50 flex items-center gap-4 transition-colors">
+<div class="size-10 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-semibold truncate">Drafting non-disclosure agreement (NDA)</p>
+<p class="text-xs text-slate-500">Query ID: #8819 • 1 hour ago</p>
+</div>
+<div class="text-right">
+<p class="text-xs font-medium text-slate-400">09:30 AM</p>
+<span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">Completed</span>
+</div>
+</div>
+<div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-900/50 flex items-center gap-4 transition-colors">
+<div class="size-10 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center">
+<span class="material-symbols-outlined">policy</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-semibold truncate">Statutory limits for defamation in FL</p>
+<p class="text-xs text-slate-500">Query ID: #8815 • 3 hours ago</p>
+</div>
+<div class="text-right">
+<p class="text-xs font-medium text-slate-400">07:15 AM</p>
+<span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">Completed</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Court Actions/Dates -->
+<div class="bg-white dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
+<div class="p-6 border-b border-slate-200 dark:border-slate-800">
+<h3 class="font-bold text-lg">Upcoming Court Dates</h3>
+</div>
+<div class="flex-1 p-6 space-y-4">
+<div class="relative pl-6 border-l-2 border-primary">
+<div class="absolute -left-1.5 top-0 size-3 rounded-full bg-primary border-2 border-white dark:border-slate-950"></div>
+<div class="mb-1">
+<span class="text-[10px] font-bold uppercase text-primary">Today • 2:00 PM</span>
+<h4 class="text-sm font-bold">Vance vs. Sterling Corp</h4>
+</div>
+<p class="text-xs text-slate-500">Preliminary Hearing - Room 402B</p>
+</div>
+<div class="relative pl-6 border-l-2 border-slate-200 dark:border-slate-800">
+<div class="absolute -left-1.5 top-0 size-3 rounded-full bg-slate-200 dark:bg-slate-800 border-2 border-white dark:border-slate-950"></div>
+<div class="mb-1">
+<span class="text-[10px] font-bold uppercase text-slate-500">Oct 26 • 10:00 AM</span>
+<h4 class="text-sm font-bold">Miller Estate Settlement</h4>
+</div>
+<p class="text-xs text-slate-500">Mediation - Remote Access</p>
+</div>
+<div class="relative pl-6 border-l-2 border-slate-200 dark:border-slate-800">
+<div class="absolute -left-1.5 top-0 size-3 rounded-full bg-slate-200 dark:bg-slate-800 border-2 border-white dark:border-slate-950"></div>
+<div class="mb-1">
+<span class="text-[10px] font-bold uppercase text-slate-500">Nov 02 • 09:00 AM</span>
+<h4 class="text-sm font-bold">State vs. Henderson</h4>
+</div>
+<p class="text-xs text-slate-500">Jury Selection - Criminal Division</p>
+</div>
+</div>
+<div class="p-6 pt-0 mt-auto">
+<button class="w-full py-3 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                                    Manage Calendar
+                                </button>
+</div>
+</div>
+</div>
+<!-- Lawyer Quick Actions Section -->
+<div class="bg-primary/5 border border-primary/20 rounded-xl p-8">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+<div>
+<h3 class="text-xl font-bold text-slate-900 dark:text-slate-100">Lawyer Toolbox</h3>
+<p class="text-slate-600 dark:text-slate-400 mt-1">AI-powered shortcuts to expedite your case workflow.</p>
+</div>
+<div class="flex flex-wrap gap-3">
+<button class="flex items-center gap-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-4 py-2.5 rounded-lg text-sm font-medium hover:shadow-md transition-all">
+<span class="material-symbols-outlined text-primary">edit_note</span>
+<span>Draft Motion</span>
+</button>
+<button class="flex items-center gap-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-4 py-2.5 rounded-lg text-sm font-medium hover:shadow-md transition-all">
+<span class="material-symbols-outlined text-primary">verified_user</span>
+<span>Conflict Check</span>
+</button>
+<button class="flex items-center gap-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-4 py-2.5 rounded-lg text-sm font-medium hover:shadow-md transition-all">
+<span class="material-symbols-outlined text-primary">summarize</span>
+<span>Deposition Summary</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>
