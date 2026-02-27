@@ -302,12 +302,13 @@ Role-based Access Filter  (user_access_level payload filter)
 
 **Current indexed counts (production):**
 
-| Collection | Records |
-|---|---|
-| `legal_sections` | 1,933 |
-| `legal_sub_sections` | 2,104 |
-| `sc_judgments` | 37,965 |
-| `law_transition_context` | 1,440 |
+| Collection | Records | Notes |
+|---|---|---|
+| `legal_sections` | 1,933 | 12 acts fully indexed |
+| `legal_sub_sections` | 2,104 | Clause/proviso/explanation granularity |
+| `sc_judgments` | 37,965 chunks (1,636 judgments) | **2023–2024 only** — year range expandable via CLI |
+| `law_transition_context` | 1,440 | IPC→BNS / CrPC→BNSS mappings |
+| `case_law` | 0 | Collection created, population planned |
 
 ---
 
@@ -536,10 +537,13 @@ python data/scripts/run_indexing.py --mode setup        # Create Qdrant collecti
 python data/scripts/run_indexing.py --act ALL           # Index all acts
 python data/scripts/run_indexing.py --mode transition   # Activate IPC→BNS mappings
 
-# Stage 3 — Ingest Supreme Court judgments
-python backend/preprocessing/sc_judgment_ingester.py
+# Stage 3 — Ingest Supreme Court judgments (source: Vanga S3 open dataset CC BY 4.0)
+# s3://indian-supreme-court-judgments — specify years to ingest
+python backend/preprocessing/sc_judgment_ingester.py --years 2024 2023
+# Or a range:
+python backend/preprocessing/sc_judgment_ingester.py --year-range 2019 2024
 
-# Stage 4 — Domain-tag SC judgments (criminal/civil/constitutional etc.)
+# Stage 4 — Domain-tag SC judgments in Qdrant (Criminal / Constitutional / Civil)
 python scripts/tag_sc_judgment_domains.py
 ```
 
@@ -644,16 +648,13 @@ open htmlcov/index.html
 
 ## Legal Data Coverage
 
-**Acts indexed with full section text:**
+**Acts in ingestion pipeline (`run_ingestion.py` `_ACT_CONFIG`):**
 
-| Act | Code | Count | Era |
+| Act | Code | Sections | Era |
 |---|---|---|---|
 | Bharatiya Nyaya Sanhita 2023 | BNS_2023 | 358 | naveen_sanhitas |
 | Bharatiya Nagarik Suraksha Sanhita 2023 | BNSS_2023 | 531 | naveen_sanhitas |
 | Bharatiya Sakshya Adhiniyam 2023 | BSA_2023 | 170 | naveen_sanhitas |
-| Indian Penal Code 1860 | IPC_1860 | 511 | colonial_codes |
-| Code of Criminal Procedure 1973 | CrPC_1973 | 484 | colonial_codes |
-| Indian Evidence Act 1872 | IEA_1872 | 167 | colonial_codes |
 | Code of Civil Procedure 1908 | CPC_1908 | 387 | civil_statutes |
 | Hindu Succession Act 1956 | HSA_1956 | 28 | civil_statutes |
 | Hindu Marriage Act 1955 | HMA_1955 | — | civil_statutes |
@@ -664,9 +665,11 @@ open htmlcov/index.html
 | Consumer Protection Act 2019 | CPA_2019 | — | civil_statutes |
 | Arbitration & Conciliation Act 1996 | ACA_1996 | — | civil_statutes |
 
-**Supreme Court Judgments:** 37,965 indexed (1950–2024), domain-tagged across Criminal, Civil, Constitutional, Family, and Corporate law.
+> **Note:** IPC 1860, CrPC 1973, IEA 1872 are referenced in transition mappings and `law_transition_context` collection but are not in the current ingestion pipeline. Legacy act JSON files (`ACA.json`, `CPA.json` etc. in `data/raw/acts/`) are currently empty placeholder files — section data comes from the PDF extraction pipeline.
 
-**Transition Mappings:** 1,440 IPC→BNS and CrPC→BNSS section mappings — effective date 2024-07-01.
+**Supreme Court Judgments:** 1,636 judgments (37,965 chunks) indexed, covering **2023–2024** (Vanga S3 open dataset, CC BY 4.0). Domain-tagged across 3 categories: **Criminal, Constitutional, Civil**. Year range is expandable via `--years` or `--year-range` CLI flags.
+
+**Transition Mappings:** 1,440 IPC→BNS and CrPC→BNSS section mappings, activated via adversarial assertion guard (5 checks must pass) — effective date 2024-07-01.
 
 ---
 
