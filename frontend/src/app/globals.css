@@ -1,0 +1,305 @@
+@import "tailwindcss";
+
+/* Dark mode — applies when any ancestor has class="dark" */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Design Tokens ─────────────────────────────────────── */
+@theme {
+  /* Brand */
+  --color-primary:          #db7706;
+  --color-primary-hover:    #b45309;
+
+  /* Page backgrounds */
+  --color-background-dark:  #020617;
+  --color-background-light: #f8f7f5;
+
+  /* Card / surface */
+  --color-slate-card:       #0f172a;
+  --color-surface-dark:     #2a1f14;
+
+  /* Borders */
+  --color-border-dark:      #4a3721;
+
+  /* Typography */
+  --font-sans:    "Inter", system-ui, sans-serif;
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-serif:   "Merriweather", Georgia, serif;
+
+  /* Custom animations */
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-fade-in:    fadeIn 0.3s ease-in-out;
+  --animate-slide-up:   slideUp 0.3s ease-out;
+}
+
+/* ── Keyframes ──────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.25s ease-out;
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+@keyframes agent-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── Base ───────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #f8f7f5;
+  color: #0f172a;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.dark body {
+  background: #020617;
+  color: #f1f5f9;
+}
+
+/* ── Material Symbols ───────────────────────────────────── */
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  user-select: none;
+}
+
+.material-symbols-outlined.filled {
+  font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+.custom-scrollbar::-webkit-scrollbar       { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; }
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Streaming cursor ───────────────────────────────────── */
+.streaming-cursor::after {
+  content: "▊";
+  animation: blink-cursor 0.7s ease-in-out infinite;
+  color: #db7706;
+  margin-left: 2px;
+}
+
+/* ── Citation tag ───────────────────────────────────────── */
+.citation-tag {
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+.citation-tag:hover {
+  border-color: #db7706 !important;
+  color: #db7706 !important;
+}
+
+/* ── Agent pipeline ─────────────────────────────────────── */
+.agent-active {
+  animation: agent-pulse 1.2s ease-in-out infinite;
+}
+
+/* ── Card hover ─────────────────────────────────────────── */
+.card-hover {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  border-color: rgba(219, 119, 6, 0.3);
+}
+
+/* ── Statute highlight ──────────────────────────────────── */
+.statute-ref {
+  background: rgba(219, 119, 6, 0.12);
+  color: #db7706;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.statute-ref:hover {
+  background: rgba(219, 119, 6, 0.22);
+}
+
+/* ── Animate fade-in utility ────────────────────────────── */
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+/* ── Thesys visual response ─────────────────────────────── */
+.thesys-response {
+  font-family: var(--font-sans);
+  line-height: 1.6;
+}
+.thesys-response h1,
+.thesys-response h2,
+.thesys-response h3 {
+  font-weight: 700;
+  color: #db7706;
+  margin-bottom: 0.5rem;
+}
+.thesys-response p {
+  margin-bottom: 0.75rem;
+  color: inherit;
+}
+.thesys-response ul,
+.thesys-response ol {
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+.thesys-response li {
+  margin-bottom: 0.25rem;
+}
+.thesys-response table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+.thesys-response th,
+.thesys-response td {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  text-align: left;
+}
+.dark .thesys-response th,
+.dark .thesys-response td {
+  border-color: #334155;
+}
+.thesys-response th {
+  background: rgba(219, 119, 6, 0.1);
+  font-weight: 600;
+  color: #db7706;
+}
+
+/* ── Markdown response styles ───────────────────────────── */
+.markdown-body h1 { font-size: 1.3rem; font-weight: 700; margin-bottom: 0.75rem; color: inherit; }
+.markdown-body h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: inherit; }
+.markdown-body h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; color: #db7706; }
+.markdown-body h4 { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.05em; color: #db7706; }
+.markdown-body p { margin-bottom: 0.75rem; line-height: 1.7; }
+.markdown-body p:last-child { margin-bottom: 0; }
+.markdown-body ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+.markdown-body ol { list-style: decimal; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+.markdown-body li { margin-bottom: 0.3rem; line-height: 1.6; }
+.markdown-body strong { font-weight: 700; }
+.markdown-body em { font-style: italic; }
+.markdown-body code {
+  background: rgba(219, 119, 6, 0.12);
+  color: #db7706;
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  font-size: 0.85em;
+  font-family: monospace;
+}
+.markdown-body pre {
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin-bottom: 0.75rem;
+}
+.dark .markdown-body pre {
+  background: #0f172a;
+}
+.markdown-body pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+.markdown-body blockquote {
+  border-left: 3px solid #db7706;
+  padding-left: 1rem;
+  margin-left: 0;
+  color: #64748b;
+  font-style: italic;
+  margin-bottom: 0.75rem;
+}
+.dark .markdown-body blockquote {
+  color: #94a3b8;
+}
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+.markdown-body th,
+.markdown-body td {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  text-align: left;
+}
+.dark .markdown-body th,
+.dark .markdown-body td {
+  border-color: #1e293b;
+}
+.markdown-body th {
+  background: rgba(219, 119, 6, 0.08);
+  font-weight: 600;
+  color: #db7706;
+}
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 1rem 0;
+}
+.dark .markdown-body hr {
+  border-color: #1e293b;
+}
+
+/* ── Voice recording animation ──────────────────────────── */
+@keyframes recording-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+.recording-btn {
+  animation: recording-pulse 1.5s ease-in-out infinite;
+}

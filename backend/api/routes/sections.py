@@ -158,6 +158,12 @@ async def get_section(
     db: AsyncSession = Depends(get_db),
 ):
     """Get the full text and metadata of a specific section."""
+    import unicodedata
+
+    # Normalize: NFKC collapses compatibility characters (e.g. unicode digits,
+    # non-breaking spaces) that can sneak in during PDF ingestion or URL encoding.
+    section_number = unicodedata.normalize("NFKC", section_number).strip()
+
     result = await db.execute(
         select(Section).where(
             Section.act_code == act_code.upper(),
@@ -296,9 +302,11 @@ async def batch_verify(
         ("BNSS_2023", "438"): "BNSS 438 is Revision Powers — NOT anticipatory bail. Use BNSS 482.",
     }
 
+    import unicodedata
+
     for citation in request.citations:
         act = citation.act_code.upper()
-        sec = citation.section_number
+        sec = unicodedata.normalize("NFKC", citation.section_number).strip()
 
         row = (
             await db.execute(

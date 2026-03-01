@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -37,7 +38,9 @@ async def search_cases(
         from backend.agents.tools import QdrantHybridSearchTool
 
         tool = QdrantHybridSearchTool()
-        raw = await tool._run(
+        # _run is synchronous (BGE-M3 + Qdrant are blocking); wrap in thread pool
+        raw = await asyncio.to_thread(
+            tool._run,
             query=request.query,
             top_k=request.top_k,
             collection="sc_judgments",
@@ -92,9 +95,10 @@ async def analyze_case(
     try:
         from backend.agents.tools import IRACAnalyzerTool, QdrantHybridSearchTool
 
-        # Step 1: Retrieve relevant sections
+        # Step 1: Retrieve relevant sections (_run is sync — use thread pool)
         search_tool = QdrantHybridSearchTool()
-        retrieved = await search_tool._run(
+        retrieved = await asyncio.to_thread(
+            search_tool._run,
             query=request.scenario[:200],
             top_k=5,
             collection="legal_sections",
@@ -102,9 +106,10 @@ async def analyze_case(
             era_filter="none",
         )
 
-        # Step 2: IRAC analysis
+        # Step 2: IRAC analysis (_run is sync — use thread pool)
         irac_tool = IRACAnalyzerTool()
-        irac_raw = await irac_tool._run(
+        irac_raw = await asyncio.to_thread(
+            irac_tool._run,
             original_query=request.scenario,
             retrieved_sections=retrieved,
             user_role=current_user.role,

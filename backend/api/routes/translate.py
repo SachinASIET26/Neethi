@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+
+logger = logging.getLogger(__name__)
 
 from backend.api.dependencies import get_current_user
 from backend.api.schemas.translate import (
@@ -69,6 +72,10 @@ async def translate_text(
     source = _normalize_lang_code(request.source_language)
     preserved = _extract_preserved_terms(request.text)
 
+    # Sarvam translate supports up to ~5000 chars but responses can exceed this;
+    # truncate to 3000 chars to stay safely within limits
+    input_text = request.text[:3000]
+
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
@@ -78,19 +85,29 @@ async def translate_text(
                     "Content-Type": "application/json",
                 },
                 json={
-                    "input": request.text,
+                    "input": input_text,
                     "source_language_code": source,
                     "target_language_code": target,
                     "speaker_gender": "Female",
                     "mode": "formal",
                     "model": "mayura:v1",
-                    "enable_preprocessing": False,
+                    "enable_preprocessing": True,
                 },
             )
-            resp.raise_for_status()
+            if not resp.is_success:
+                logger.error(
+                    "Sarvam translate error %s — body: %s",
+                    resp.status_code, resp.text[:500],
+                )
+                raise httpx.HTTPStatusError(
+                    f"Sarvam returned {resp.status_code}",
+                    request=resp.request,
+                    response=resp,
+                )
             data = resp.json()
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(502, detail=f"Sarvam AI translation error: {exc.response.text}") from exc
+        detail = f"Sarvam AI translation error {exc.response.status_code}: {exc.response.text[:300]}"
+        raise HTTPException(502, detail=detail) from exc
     except Exception as exc:
         raise HTTPException(502, detail=f"Translation service unavailable: {exc}") from exc
 
@@ -129,19 +146,29 @@ async def translate_query(
                     "Content-Type": "application/json",
                 },
                 json={
-                    "input": request.query,
+                    "input": request.query[:1000],
                     "source_language_code": source,
                     "target_language_code": "en-IN",
                     "speaker_gender": "Female",
                     "mode": "formal",
                     "model": "mayura:v1",
-                    "enable_preprocessing": False,
+                    "enable_preprocessing": True,
                 },
             )
-            resp.raise_for_status()
+            if not resp.is_success:
+                logger.error(
+                    "Sarvam translate (query) error %s — body: %s",
+                    resp.status_code, resp.text[:500],
+                )
+                raise httpx.HTTPStatusError(
+                    f"Sarvam returned {resp.status_code}",
+                    request=resp.request,
+                    response=resp,
+                )
             data = resp.json()
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(502, detail=f"Sarvam AI error: {exc.response.text}") from exc
+        detail = f"Sarvam AI error {exc.response.status_code}: {exc.response.text[:300]}"
+        raise HTTPException(502, detail=detail) from exc
     except Exception as exc:
         raise HTTPException(502, detail=f"Translation service unavailable: {exc}") from exc
 
