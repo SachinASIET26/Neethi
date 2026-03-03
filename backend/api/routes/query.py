@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 import re
 import time
 import uuid
 from typing import AsyncIterator
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
@@ -30,6 +33,74 @@ from backend.api.schemas.query import (
 from backend.db.database import get_db
 from backend.db.models.user import QueryFeedback, QueryLog, User
 from backend.services.cache import ResponseCache
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Sarvam AI — query translation helper
+# ---------------------------------------------------------------------------
+
+_SARVAM_API_KEY = os.getenv("SARVAM_API_KEY", "")
+_SARVAM_BASE_URL = "https://api.sarvam.ai"
+
+_LANG_MAP: dict[str, str] = {
+    "hi": "hi-IN", "ta": "ta-IN", "te": "te-IN", "kn": "kn-IN",
+    "ml": "ml-IN", "bn": "bn-IN", "mr": "mr-IN", "gu": "gu-IN",
+    "pa": "pa-IN", "ur": "ur-IN", "or": "or-IN",
+}
+
+
+async def _translate_to_english(query: str, language: str) -> str:
+    """Translate *query* to English via Sarvam AI.
+
+    Returns the original query unchanged when:
+    - language is English (starts with "en")
+    - SARVAM_API_KEY is not configured
+    - Sarvam returns an error or empty result
+    """
+    if not language or language.lower().startswith("en"):
+        return query  # already English — skip
+
+    if not _SARVAM_API_KEY:
+        logger.warning("SARVAM_API_KEY not configured — processing original query")
+        return query
+
+    source_code = _LANG_MAP.get(language.lower(), f"{language.lower()}-IN")
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                f"{_SARVAM_BASE_URL}/translate",
+                headers={
+                    "api-subscription-key": _SARVAM_API_KEY,
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "input": query[:1000],
+                    "source_language_code": source_code,
+                    "target_language_code": "en-IN",
+                    "speaker_gender": "Female",
+                    "mode": "formal",
+                    "model": "mayura:v1",
+                    "enable_preprocessing": True,
+                },
+            )
+            if resp.is_success:
+                translated = resp.json().get("translated_text", "").strip()
+                if translated:
+                    logger.info(
+                        "Query translated [%s→en]: '%s' → '%s'",
+                        language, query[:60], translated[:60],
+                    )
+                    return translated
+            else:
+                logger.warning(
+                    "Sarvam translate %s — %s", resp.status_code, resp.text[:200]
+                )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Query translation failed: %s — using original", exc)
+
+    return query  # fallback: use original query
 
 router = APIRouter()
 
@@ -96,8 +167,11 @@ async def ask(
     """Submit a legal query and receive a fully verified response."""
     await check_rate_limit(current_user, db)
 
+    # --- Translate query to English (skipped if language is already English) ---
+    english_query = await _translate_to_english(request.query, request.language)
+
     # --- Cache check ---
-    cached_response = await cache.get(request.query, current_user.role)
+    cached_response = await cache.get(english_query, current_user.role)
     query_id = str(uuid.uuid4())
 
     if cached_response:
@@ -121,7 +195,7 @@ async def ask(
         from backend.agents.query_router import handle_query
 
         response_text = await handle_query(
-            query=request.query,
+            query=english_query,
             user_role=current_user.role,
             crew_factory=get_crew_for_role,
         )
@@ -131,14 +205,14 @@ async def ask(
     elapsed_ms = int((time.time() - start) * 1000)
 
     # --- Cache the result ---
-    await cache.set(request.query, current_user.role, response_text, tier="full")
+    await cache.set(english_query, current_user.role, response_text, tier="full")
 
     # --- Persist to DB ---
     citations = _parse_citations(response_text)
     log = QueryLog(
         id=uuid.UUID(query_id),
         user_id=current_user.id,
-        query_text=request.query,
+        query_text=request.query,  # store original (user's language)
         response_text=response_text,
         verification_status=_parse_verification_status(response_text),
         confidence=_parse_confidence(response_text),
@@ -178,6 +252,9 @@ async def ask_stream(
     """Stream the legal query response using Server-Sent Events (SSE)."""
     await check_rate_limit(current_user, db)
 
+    # Translate query to English before streaming (skipped for English queries)
+    english_query = await _translate_to_english(request.query, request.language)
+
     async def _event_generator() -> AsyncIterator[str]:
         def _event(name: str, data: dict) -> str:
             return f"event: {name}\ndata: {json.dumps(data)}\n\n"
@@ -194,11 +271,10 @@ async def ask_stream(
         for agent in agents[:-1]:  # all except formatter — emit upfront
             yield _event("agent_start", {"agent": agent, "message": f"{agent} is working..."})
 
-        # Check cache first
-        cached = await cache.get(request.query, current_user.role)
+        # Check cache first (keyed on the English query)
+        cached = await cache.get(english_query, current_user.role)
         if cached:
             yield _event("agent_start", {"agent": "ResponseFormatter", "message": "Formatting..."})
-            # Stream the cached response in chunks
             chunk_size = 80
             for i in range(0, len(cached), chunk_size):
                 yield _event("token", {"text": cached[i : i + chunk_size]})
@@ -211,7 +287,7 @@ async def ask_stream(
             yield "event: end\ndata: {}\n\n"
             return
 
-        # Full pipeline
+        # Full pipeline — always receives the English query
         try:
             from backend.agents.crew_config import get_crew_for_role
             from backend.agents.query_router import handle_query
@@ -219,17 +295,22 @@ async def ask_stream(
             start = time.time()
             yield _event("agent_start", {"agent": "ResponseFormatter", "message": "Formatting response..."})
             response_text = await handle_query(
-                query=request.query,
+                query=english_query,
                 user_role=current_user.role,
                 crew_factory=get_crew_for_role,
             )
             elapsed_ms = int((time.time() - start) * 1000)
         except Exception as exc:
+            import traceback
+            logger.error(
+                "ask_stream pipeline error — role=%s query_prefix=%r\n%s",
+                current_user.role, english_query[:80], traceback.format_exc(),
+            )
             yield _event("error", {"code": "PIPELINE_ERROR", "detail": str(exc)})
             yield "event: end\ndata: {}\n\n"
             return
 
-        await cache.set(request.query, current_user.role, response_text, tier="full")
+        await cache.set(english_query, current_user.role, response_text, tier="full")
 
         # Stream response in chunks
         chunk_size = 80

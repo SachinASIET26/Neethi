@@ -4,9 +4,9 @@ import { useState, useRef, useEffect, Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { C1Component } from "@thesysai/genui-sdk";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore, LANGUAGES } from "@/store/ui";
+import { useTranslations } from "@/lib/i18n";
 import { createQueryStream, translateAPI, voiceAPI } from "@/lib/api";
 import { getVerificationColor, getConfidenceColor, cn } from "@/lib/utils";
 import type {
@@ -24,18 +24,14 @@ interface Message {
   metadata?: Partial<QueryResponse>;
   agents?: string[];
   progress?: number;
-  thesysContent?: string;
-  thesysLoading?: boolean;
-  thesysStreaming?: boolean;
-  showThesys?: boolean;
 }
 
 const AGENT_DISPLAY: Record<string, { label: string; icon: string }> = {
-  QueryAnalyst:        { label: "Classifying query",        icon: "manage_search" },
+  QueryAnalyst: { label: "Classifying query", icon: "manage_search" },
   RetrievalSpecialist: { label: "Searching legal database", icon: "database" },
-  LegalReasoner:       { label: "Applying IRAC analysis",   icon: "gavel" },
-  CitationChecker:     { label: "Verifying citations",      icon: "verified" },
-  ResponseFormatter:   { label: "Formatting response",      icon: "format_align_left" },
+  LegalReasoner: { label: "Applying IRAC analysis", icon: "gavel" },
+  CitationChecker: { label: "Verifying citations", icon: "verified" },
+  ResponseFormatter: { label: "Formatting response", icon: "format_align_left" },
 };
 
 // ── Citation Tag ───────────────────────────────────────────────────────
@@ -65,6 +61,7 @@ function QueryContent() {
   const initialQuery = searchParams.get("q") || "";
   const { user: authUser } = useAuthStore();
   const { selectedLanguage, setLanguage } = useUIStore();
+  const t = useTranslations(selectedLanguage);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState(initialQuery);
@@ -79,10 +76,10 @@ function QueryContent() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const stopStreamRef = useRef<(() => void) | null>(null);
-  const recognitionRef = useRef<ReturnType<typeof Object.create>>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const voiceOverEnabledRef = useRef(false);
   const latestContentRef = useRef<string>("");
+  const preRecordTextRef = useRef<string>("");
 
   // Keep refs in sync with state so streaming callbacks always read fresh values
   useEffect(() => { voiceOverEnabledRef.current = voiceOverEnabled; }, [voiceOverEnabled]);
@@ -96,69 +93,10 @@ function QueryContent() {
     if (initialQuery) handleSend(initialQuery);
   }, []); // eslint-disable-line
 
-  // ── Thesys Visual Summary ──────────────────────────────────────────
-  const fetchThesysVisual = useCallback(async (msgId: string, content: string) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === msgId
-          ? { ...m, thesysLoading: true, thesysStreaming: true, showThesys: true, thesysContent: "" }
-          : m
-      )
-    );
-    try {
-      const res = await fetch("/api/thesys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a legal information visualiser for Indian citizens. Transform the legal response into a clear, structured, citizen-friendly format using simple language. Use headings, bullet points, numbered steps, and bold key terms. Avoid jargon. Make it easy for a common person to understand their rights and next steps.",
-            },
-            { role: "user", content },
-          ],
-        }),
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        const detail = (errData as { error?: string }).error || `HTTP ${res.status}`;
-        throw new Error(detail);
-      }
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error("No response stream");
-      const decoder = new TextDecoder();
-      let accumulated = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        accumulated += decoder.decode(value, { stream: true });
-        setMessages((prev) =>
-          prev.map((m) => m.id === msgId ? { ...m, thesysContent: accumulated } : m)
-        );
-      }
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === msgId ? { ...m, thesysLoading: false, thesysStreaming: false } : m
-        )
-      );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      toast.error(`Visual summary failed: ${msg}`);
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === msgId
-            ? { ...m, thesysLoading: false, thesysStreaming: false, showThesys: false }
-            : m
-        )
-      );
-    }
-  }, []);
-
   // ── Send Handler ───────────────────────────────────────────────────
-  const handleSend = useCallback((queryText?: string) => {
-    const q = (queryText || input).trim();
-    if (!q || isStreaming) return;
+  const handleSend = useCallback(async (queryText?: string) => {
+    const originalQuery = (queryText || input).trim();
+    if (!originalQuery || isStreaming) return;
 
     const msgId = Date.now().toString();
     const assistantId = `${msgId}-ai`;
@@ -166,14 +104,31 @@ function QueryContent() {
     latestContentRef.current = "";
     setMessages((prev) => [
       ...prev,
-      { id: msgId, role: "user", content: q },
+      { id: msgId, role: "user", content: originalQuery },
       { id: assistantId, role: "assistant", content: "", isStreaming: true, agents: [], progress: 0 },
     ]);
     setInput("");
     setIsStreaming(true);
 
+    // Pre-translate non-English queries to English before sending to the pipeline.
+    // The legal pipeline only understands English; translations of the response
+    // back to the user's language happen after the pipeline completes.
+    let englishQuery = originalQuery;
+    if (selectedLanguage !== "en") {
+      try {
+        const translated = await translateAPI.translateQuery({
+          query: originalQuery,
+          source_language: selectedLanguage,
+        });
+        englishQuery = translated.english_query || originalQuery;
+      } catch {
+        // Non-fatal — fall back to sending original query
+        englishQuery = originalQuery;
+      }
+    }
+
     const stop = createQueryStream(
-      { query: q, language: selectedLanguage, include_precedents: includePrecedents },
+      { query: englishQuery, language: selectedLanguage, include_precedents: includePrecedents },
       async (event, payload) => {
         if (event === "agent_start") {
           const p = payload as SSEAgentEvent;
@@ -198,6 +153,22 @@ function QueryContent() {
             )
           );
           setIsStreaming(false);
+
+          // Persist to localStorage for history preview
+          try {
+            const stored = JSON.parse(localStorage.getItem("neethi-chat-history") || "[]") as Array<{
+              query: string; response: string; timestamp: string;
+              verification_status?: string; confidence?: string;
+            }>;
+            stored.unshift({
+              query: originalQuery,
+              response: latestContentRef.current,
+              timestamp: new Date().toISOString(),
+              verification_status: p.verification_status,
+              confidence: p.confidence,
+            });
+            localStorage.setItem("neethi-chat-history", JSON.stringify(stored.slice(0, 100)));
+          } catch { /* ignore quota errors */ }
 
           // Capture the final content from ref (accumulated by token events)
           let ttsContent = latestContentRef.current;
@@ -268,11 +239,13 @@ function QueryContent() {
             })();
           }
         } else if (event === "error") {
-          toast.error("An error occurred. Please try again.");
+          const errPayload = payload as { detail?: string; code?: string };
+          const errMsg = errPayload?.detail || errPayload?.code || "An error occurred. Please try again.";
+          toast.error(errMsg, { duration: 8000 });
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
-                ? { ...m, isStreaming: false, content: "Sorry, an error occurred. Please try again." }
+                ? { ...m, isStreaming: false, content: `⚠️ **Pipeline error:** ${errMsg}` }
                 : m
             )
           );
@@ -287,7 +260,7 @@ function QueryContent() {
       }
     );
     stopStreamRef.current = stop;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [input, isStreaming, selectedLanguage, includePrecedents]);
 
   const handleStop = () => {
@@ -384,46 +357,74 @@ function QueryContent() {
     } finally {
       setIsTTSLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, selectedLanguage, stopAudio]);
 
-  // ── STT ────────────────────────────────────────────────────────────
-  const handleVoiceInput = () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const w = window as any;
-    const SpeechRecognitionAPI = w.SpeechRecognition || w.webkitSpeechRecognition;
+  // ── STT — records audio and sends to Sarvam backend for proper regional-language support ─────
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
-    if (!SpeechRecognitionAPI) {
-      toast.error("Voice input not supported. Try Chrome or Edge.");
-      return;
-    }
+  const handleVoiceInput = async () => {
+    // If already recording, stop and process
     if (isRecording) {
-      recognitionRef.current?.stop();
+      mediaRecorderRef.current?.stop();
       setIsRecording(false);
       return;
     }
-    const recognition = new SpeechRecognitionAPI();
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast.error("Microphone not supported. Try Chrome or Edge.");
+      return;
+    }
+
     const langMap: Record<string, string> = {
       hi: "hi-IN", ta: "ta-IN", te: "te-IN", bn: "bn-IN",
       mr: "mr-IN", gu: "gu-IN", kn: "kn-IN", ml: "ml-IN", pa: "pa-IN", en: "en-IN",
     };
-    recognition.lang = langMap[selectedLanguage] || "en-IN";
-    recognition.interimResults = true;
-    recognition.onstart = () => setIsRecording(true);
-    recognition.onend = () => setIsRecording(false);
-    recognition.onerror = () => { setIsRecording(false); toast.error("Voice failed. Try again."); };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (e: any) => {
-      const transcript = Array.from(e.results as ArrayLike<SpeechRecognitionAlternative[]>)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((r: any) => r[0].transcript)
-        .join("");
-      setInput(transcript);
-      if (e.results[e.results.length - 1].isFinal) setIsRecording(false);
-    };
-    recognitionRef.current = recognition;
-    recognition.start();
-    toast("Listening… speak now", { icon: "🎙️" });
+    const langCode = langMap[selectedLanguage] || "en-IN";
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        // Stop all tracks so mic indicator clears
+        stream.getTracks().forEach((t) => t.stop());
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        toast("Transcribing…", { icon: "✍️" });
+
+        try {
+          const transcript = await voiceAPI.speechToText(audioBlob, langCode);
+          if (transcript) {
+            const base = preRecordTextRef.current;
+            setInput(base ? `${base} ${transcript}` : transcript);
+            toast.success("Voice transcribed!");
+          } else {
+            toast.error("Could not transcribe audio. Please speak clearly.");
+          }
+        } catch (err) {
+          console.error("STT error", err);
+          toast.error("Voice transcription failed. Check microphone & try again.");
+        }
+      };
+
+      // Save whatever was typed before recording
+      preRecordTextRef.current = input;
+      recorder.start();
+      setIsRecording(true);
+      toast("Recording… tap mic again to stop", { icon: "🎙️" });
+    } catch (err) {
+      console.error("Mic access error", err);
+      toast.error("Microphone access denied.");
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -432,14 +433,12 @@ function QueryContent() {
 
   const isEmpty = messages.length === 0;
   const currentLang = LANGUAGES.find((l) => l.code === selectedLanguage) || LANGUAGES[0];
-  // Visual Summary available for all roles (optional toggle)
-  const showVisualSummaryOption = true;
 
   const SUGGESTIONS = [
-    { icon: "gavel",   q: "What is the punishment for murder under BNS 2023?" },
+    { icon: "gavel", q: "What is the punishment for murder under BNS 2023?" },
     { icon: "balance", q: "Explain the difference between IPC 302 and BNS 103." },
-    { icon: "policy",  q: "How to file an anticipatory bail under BNSS 482?" },
-    { icon: "groups",  q: "What are fundamental rights under the Indian Constitution?" },
+    { icon: "policy", q: "How to file an anticipatory bail under BNSS 482?" },
+    { icon: "groups", q: "What are fundamental rights under the Indian Constitution?" },
   ];
 
   return (
@@ -454,9 +453,9 @@ function QueryContent() {
               <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-5">
                 <span className="material-symbols-outlined text-primary text-3xl">gavel</span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">AI Legal Assistant</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t.aiLegalAssistant}</h2>
               <p className="text-gray-500 dark:text-slate-400 text-sm max-w-md leading-relaxed">
-                Institutional-grade legal research and statutory analysis. Ask about BNS, IPC, BNSS, case law, or get an IRAC analysis.
+                {t.emptyStateDesc}
               </p>
 
               {authUser && (
@@ -507,7 +506,7 @@ function QueryContent() {
 
                   <div className="flex-1 min-w-0 flex flex-col gap-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold uppercase tracking-wider text-primary">Neethi AI Response</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-primary">{t.neethiResponse}</span>
                       <span className="text-[10px] text-gray-400 dark:text-slate-500">• Legal AI v1.0</span>
                     </div>
 
@@ -544,77 +543,20 @@ function QueryContent() {
                       </div>
                     )}
 
-                    {/* View Toggle: Legal / Visual (all roles, optional) */}
-                    {message.content && !message.isStreaming && showVisualSummaryOption && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() =>
-                            setMessages((prev) =>
-                              prev.map((m) => m.id === message.id ? { ...m, showThesys: false } : m)
-                            )
-                          }
-                          className={cn(
-                            "px-3 py-1 rounded-full text-xs font-semibold border transition-all",
-                            !message.showThesys
-                              ? "bg-primary text-white border-primary"
-                              : "border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-400 hover:border-primary/40"
-                          )}
-                        >
-                          Legal Response
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (!message.thesysContent && !message.thesysLoading) {
-                              fetchThesysVisual(message.id, message.content);
-                            } else {
-                              setMessages((prev) =>
-                                prev.map((m) => m.id === message.id ? { ...m, showThesys: true } : m)
-                              );
-                            }
-                          }}
-                          className={cn(
-                            "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all",
-                            message.showThesys
-                              ? "bg-primary text-white border-primary"
-                              : "border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-400 hover:border-primary/40"
-                          )}
-                        >
-                          {message.thesysLoading ? (
-                            <>
-                              <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                              <span className="material-symbols-outlined text-[13px]">auto_awesome</span>
-                              Visual Summary
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    )}
-
                     {/* Response Card */}
                     {message.content && (
                       <div className="rounded-2xl bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-slate-800 p-5 sm:p-6 shadow-sm">
-                        {message.showThesys && (message.thesysContent || message.thesysStreaming) ? (
-                          <C1Component
-                            c1Response={message.thesysContent ?? ""}
-                            isStreaming={message.thesysStreaming ?? false}
-                          />
-                        ) : (
-                          <div className="markdown-body text-sm text-gray-800 dark:text-slate-200 leading-relaxed">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-                            {message.isStreaming && <span className="streaming-cursor" />}
-                          </div>
-                        )}
+                        <div className="markdown-body text-sm text-gray-800 dark:text-slate-200 leading-relaxed">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                          {message.isStreaming && <span className="streaming-cursor" />}
+                        </div>
                       </div>
                     )}
 
                     {/* Citations */}
                     {!message.isStreaming && (message.metadata?.citations?.length ?? 0) > 0 && (
                       <div className="space-y-2">
-                        <p className="text-xs text-gray-400 dark:text-slate-500 font-medium uppercase tracking-wider">Citations</p>
+                        <p className="text-xs text-gray-400 dark:text-slate-500 font-medium uppercase tracking-wider">{t.citations}</p>
                         <div className="flex flex-wrap gap-2">
                           {message.metadata!.citations!.map((c, i) => <CitationTag key={i} citation={c} />)}
                         </div>
@@ -624,7 +566,7 @@ function QueryContent() {
                     {/* Precedents */}
                     {!message.isStreaming && (message.metadata?.precedents?.length ?? 0) > 0 && (
                       <div className="space-y-2">
-                        <p className="text-xs text-gray-400 dark:text-slate-500 font-medium uppercase tracking-wider">Precedents</p>
+                        <p className="text-xs text-gray-400 dark:text-slate-500 font-medium uppercase tracking-wider">{t.precedents}</p>
                         <div className="flex flex-wrap gap-2">
                           {message.metadata!.precedents!.map((p, i) => (
                             <span key={i} className="px-2.5 py-1 rounded-full border border-gray-200 dark:border-slate-700 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 text-xs font-medium citation-tag">
@@ -645,7 +587,7 @@ function QueryContent() {
                           <span className={cn("text-xs px-2 py-0.5 rounded border font-medium", getVerificationColor(message.metadata.verification_status))}>
                             <span className="material-symbols-outlined text-[12px] mr-1">
                               {message.metadata.verification_status === "VERIFIED" ? "verified" :
-                               message.metadata.verification_status === "PARTIALLY_VERIFIED" ? "warning" : "cancel"}
+                                message.metadata.verification_status === "PARTIALLY_VERIFIED" ? "warning" : "cancel"}
                             </span>
                             {message.metadata.verification_status.replace(/_/g, " ")}
                           </span>
@@ -780,7 +722,7 @@ function QueryContent() {
               <span className="material-symbols-outlined text-[14px]">
                 {includePrecedents ? "check_circle" : "radio_button_unchecked"}
               </span>
-              Include Precedents
+              {t.includePrecedents}
             </button>
 
             {/* Voice-over toggle */}
@@ -800,7 +742,7 @@ function QueryContent() {
               <span className="material-symbols-outlined text-[14px]">
                 {voiceOverEnabled ? "volume_up" : "volume_off"}
               </span>
-              Voice-over
+              {t.voiceOver}
               {isPlaying && <span className="w-2 h-2 rounded-full bg-primary animate-pulse flex-shrink-0" />}
               {isTTSLoading && !isPlaying && (
                 <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin flex-shrink-0" />
@@ -813,7 +755,7 @@ function QueryContent() {
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400 text-xs font-medium hover:bg-red-100 transition-colors"
               >
                 <span className="material-symbols-outlined text-[14px]">stop_circle</span>
-                Stop
+                {t.stop}
               </button>
             )}
           </div>
@@ -829,15 +771,15 @@ function QueryContent() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask about BNS, IPC, BNSS, or case law analysis..."
+                placeholder={t.inputPlaceholder}
                 rows={1}
                 disabled={isStreaming}
                 className="w-full bg-gray-100 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl py-3.5 pl-11 pr-28 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 text-gray-800 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-500 text-sm transition-all min-h-[52px] max-h-36 disabled:opacity-60"
                 style={{ height: "auto" }}
                 onInput={(e) => {
-                  const t = e.currentTarget;
-                  t.style.height = "auto";
-                  t.style.height = Math.min(t.scrollHeight, 144) + "px";
+                  const el = e.currentTarget;
+                  el.style.height = "auto";
+                  el.style.height = Math.min(el.scrollHeight, 144) + "px";
                 }}
               />
               <div className="absolute right-2 bottom-2 flex items-center gap-1">
@@ -860,17 +802,17 @@ function QueryContent() {
                   type="button"
                   onClick={() => handleSend()}
                   disabled={!input.trim() || isStreaming}
-                  className="bg-primary text-white font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-amber-600 transition-colors disabled:opacity-40 disabled:pointer-events-none text-xs"
+                  className="bg-primary text-white p-2 rounded-lg flex items-center justify-center hover:bg-amber-600 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                  title="Send message"
                 >
-                  SEND
-                  <span className="material-symbols-outlined text-[16px]">send</span>
+                  <span className="material-symbols-outlined text-[20px]">send</span>
                 </button>
               </div>
             </div>
           </div>
 
           <p className="text-[10px] text-gray-400 dark:text-slate-600 text-center">
-            Neethi AI provides legal information, not legal advice. All citations are verified against the Indian legal database.
+            {t.disclaimer}
           </p>
         </div>
       </div>

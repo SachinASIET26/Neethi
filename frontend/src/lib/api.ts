@@ -287,7 +287,7 @@ export const voiceAPI = {
    */
   ask: async (audioBlob: Blob, language = "en-IN") => {
     const form = new FormData();
-    form.append("audio", audioBlob, "recording.wav");
+    form.append("file", audioBlob, "recording.wav");
     form.append("language_code", language);
     const token = Cookies.get("neethi_token");
     const res = await fetch(`${BASE_URL}/voice/ask`, {

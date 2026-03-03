@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore, LANGUAGES } from "@/store/ui";
+import { useTranslations } from "@/lib/i18n";
 
 import { authAPI } from "@/lib/api";
 import { getRoleLabel, getRoleColor, cn } from "@/lib/utils";
@@ -15,6 +16,7 @@ export default function Header() {
   const { user, clearAuth } = useAuthStore();
   const { theme, setTheme } = useTheme();
   const { selectedLanguage, setLanguage, toggleMobileSidebar } = useUIStore();
+  const t = useTranslations(selectedLanguage);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -70,7 +72,7 @@ export default function Header() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search laws, cases, sections..."
+            placeholder={t.searchPlaceholder}
             className="w-full pl-9 pr-4 py-2 h-9 rounded-lg bg-gray-100 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-sm text-gray-800 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors"
           />
         </div>
@@ -146,7 +148,7 @@ export default function Header() {
           className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-amber-600 transition-colors"
         >
           <span className="material-symbols-outlined text-[16px]">add</span>
-          New Query
+          {t.newQuery}
         </Link>
 
         {/* User Profile */}
@@ -198,7 +200,7 @@ export default function Header() {
                     className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
                   >
                     <span className="material-symbols-outlined text-[18px]">person</span>
-                    My Profile
+                    {t.profile}
                   </Link>
                   <Link
                     href="/settings"
@@ -206,7 +208,7 @@ export default function Header() {
                     className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
                   >
                     <span className="material-symbols-outlined text-[18px]">settings</span>
-                    Settings
+                    {t.settings}
                   </Link>
                   <button
                     onClick={() => { setTheme(isDark ? "light" : "dark"); setShowDropdown(false); }}
@@ -225,7 +227,7 @@ export default function Header() {
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-slate-800 transition-colors"
                   >
                     <span className="material-symbols-outlined text-[18px]">logout</span>
-                    Sign Out
+                    {t.signOut}
                   </button>
                 </div>
               </div>

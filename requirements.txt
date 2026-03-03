@@ -60,7 +60,7 @@ qdrant-client==1.12.0
 # AI / LLM Orchestration — CrewAI
 # ---------------------------------------------------------------------------
 crewai==1.9.2
-litellm==1.81.5                  # Unified LLM abstraction (Groq, DeepSeek, Claude)
+# litellm version is managed by crewai dependency — do not pin separately (causes conflicts)
 apscheduler==3.10.4              # Required by litellm internal scheduler
 nest_asyncio==1.6.0              # Nested asyncio loops — required for CrewAI akickoff()
 
@@ -97,7 +97,7 @@ reportlab==4.2.5                 # Alternative PDF generation for exports
 # ---------------------------------------------------------------------------
 # Authentication & Security
 # ---------------------------------------------------------------------------
-python-jose[cryptography]==3.3.0 # JWT encode / decode
+python-jose[cryptography]==3.5.0 # JWT encode / decode
 passlib[bcrypt]==1.7.4           # Password hashing
 email-validator==2.2.0           # Pydantic EmailStr validation
 
@@ -114,7 +114,7 @@ httpx==0.28.0                    # Async HTTP client (also FastAPI TestClient)
 # ---------------------------------------------------------------------------
 # Configuration & Environment
 # ---------------------------------------------------------------------------
-python-dotenv==1.0.1
+python-dotenv==1.1.1                  # Required by crewai>=1.9.x
 
 # ---------------------------------------------------------------------------
 # Logging & Observability

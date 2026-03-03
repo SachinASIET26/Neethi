@@ -11,9 +11,9 @@ Retrieval tools:
                                     for direct section number queries
 
 Analysis tools:
-    QueryClassifierTool           — LLM-based query classification (Groq fast path);
+    QueryClassifierTool           — LLM-based query classification (Mistral Large primary, Groq fallback);
                                     outputs Query Type to drive weighted RRF weights
-    IRACAnalyzerTool              — Legal IRAC analysis (DeepSeek-R1)
+    IRACAnalyzerTool              — Legal IRAC analysis (Mistral Large primary, Groq fallback)
     CrossReferenceExpansionTool   — PostgreSQL graph traversal for exception_reference,
                                     subject_to, definition_import, punishment_table links
                                     (lawyer / legal_advisor crews only)

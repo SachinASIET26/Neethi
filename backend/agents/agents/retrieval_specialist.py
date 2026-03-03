@@ -8,7 +8,7 @@ MANDATORY WORKFLOW:
 2. Use normalized section references (BNS/BNSS/BSA) in all Qdrant queries
 3. Never search for "IPC 302" directly — search for "BNS 103" after normalization
 
-Model: DeepSeek-Chat — accurate, cost-effective for tool orchestration.
+Model: Mistral Large (primary) / Groq Llama 3.3 70B (fallback) — reliable tool orchestration.
 """
 
 from __future__ import annotations

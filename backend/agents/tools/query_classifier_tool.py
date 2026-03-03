@@ -1,6 +1,7 @@
 """QueryClassifierTool — Phase 5 query analysis tool.
 
-Calls Groq (Llama 3.3 70B) via LiteLLM to classify the user's legal query.
+Calls Mistral Large (primary) or Groq Llama 3.3 70B (fallback) via LiteLLM
+to classify the user's legal query.
 Fast — designed for the low-latency first step of every crew pipeline.
 
 Output is a structured plaintext block (not JSON) for reliable agent parsing:
@@ -30,7 +31,7 @@ from textwrap import dedent
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 
-from backend.config.llm_config import is_mistral_fallback_active
+from backend.config.llm_config import is_mistral_fallback_active  # noqa: F401 — kept for legacy import compat
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,8 @@ class QueryClassifierInput(BaseModel):
 class QueryClassifierTool(BaseTool):
     """Classify a legal query by domain, intent, entities, and search parameters.
 
-    Uses Groq (Llama 3.3 70B) for fast classification. Output tells the agent:
+    Uses Mistral Large (primary) or Groq Llama 3.3 70B (fallback) for fast classification.
+    Output tells the agent:
     - What legal domain the query belongs to
     - What the user intends (information, drafting, case analysis, etc.)
     - Whether old statutes (IPC/CrPC/IEA) are mentioned (→ call StatuteNormalizationTool)
@@ -123,7 +125,7 @@ class QueryClassifierTool(BaseTool):
     args_schema: type[BaseModel] = QueryClassifierInput
 
     def _run(self, query: str | dict, user_role: str = "citizen") -> str:  # type: ignore[override]
-        """Call Groq LLM (sync) to classify the query.
+        """Call Mistral Large (primary) or Groq (fallback) to classify the query.
 
         Synchronous — CrewAI's BaseTool.run() calls _run() synchronously.
         Uses litellm.completion() (sync) instead of acompletion() to avoid
@@ -144,35 +146,38 @@ class QueryClassifierTool(BaseTool):
 
         prompt = _CLASSIFICATION_PROMPT.format(query=query, user_role=user_role)
 
-        try:
-            if is_mistral_fallback_active():
-                _model = "mistral/mistral-small-latest"
-                _api_key = os.getenv("MISTRAL_API_KEY")
-            else:
-                _model = "groq/llama-3.3-70b-versatile"
-                _api_key = os.getenv("GROQ_API_KEY")
+        # Try Mistral Large first, fall back to Groq Llama 3.3 70B
+        for _model, _key_env in [
+            ("mistral/mistral-large-latest", "MISTRAL_API_KEY"),
+            ("groq/llama-3.3-70b-versatile", "GROQ_API_KEY"),
+        ]:
+            _api_key = os.getenv(_key_env, "").strip()
+            if not _api_key:
+                continue
+            try:
+                response = completion(
+                    model=_model,
+                    messages=[{"role": "user", "content": prompt}],
+                    api_key=_api_key,
+                    temperature=0.1,
+                    max_tokens=512,
+                )
+                classification = response.choices[0].message.content.strip()
+                classification = _enforce_precedents_rule(classification, user_role)
+                logger.info(
+                    "query_classifier: model=%s query=%r role=%s domain=%s requires_precedents=%s",
+                    _model,
+                    query[:60],
+                    user_role,
+                    _extract_field(classification, "Legal Domain"),
+                    _extract_field(classification, "Requires Precedents"),
+                )
+                return f"QUERY CLASSIFICATION:\n{classification}"
+            except Exception as exc:
+                logger.warning("query_classifier: model=%s failed: %s — trying next", _model, exc)
 
-            response = completion(
-                model=_model,
-                messages=[{"role": "user", "content": prompt}],
-                api_key=_api_key,
-                temperature=0.1,
-                max_tokens=512,
-            )
-            classification = response.choices[0].message.content.strip()
-            classification = _enforce_precedents_rule(classification, user_role)
-            logger.info(
-                "query_classifier: query=%r role=%s domain=%s requires_precedents=%s",
-                query[:60],
-                user_role,
-                _extract_field(classification, "Legal Domain"),
-                _extract_field(classification, "Requires Precedents"),
-            )
-            return f"QUERY CLASSIFICATION:\n{classification}"
-
-        except Exception as exc:
-            logger.exception("query_classifier: LLM call failed: %s", exc)
-            return _fallback_classification(query, user_role)
+        logger.error("query_classifier: all LLM providers failed — using rule-based fallback")
+        return _fallback_classification(query, user_role)
 
 
 # ---------------------------------------------------------------------------
@@ -190,7 +195,7 @@ def _extract_field(text: str, field_name: str) -> str:
 def _enforce_precedents_rule(classification: str, user_role: str) -> str:
     """Post-process LLM classification to enforce Requires Precedents rules in Python.
 
-    LLMs (especially Mistral Small on fallback) sometimes return
+    LLMs (especially Groq on fallback) sometimes return
     'Requires Precedents: false' for lawyer/advisor + moderate/complex queries
     even when the prompt says to set it true.  This function enforces the same
     4-rule logic as the prompt, overriding the LLM output when necessary.
@@ -234,7 +239,7 @@ def _enforce_precedents_rule(classification: str, user_role: str) -> str:
 
 
 def _fallback_classification(query: str, user_role: str) -> str:
-    """Rule-based fallback when Groq is unavailable."""
+    """Rule-based fallback when all LLM providers (Mistral, Groq) are unavailable."""
     query_lower = query.lower()
 
     # Domain detection
