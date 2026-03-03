@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
+import { useTranslations } from "@/lib/i18n";
 import { getRoleLabel, getRoleColor, cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
 
@@ -13,25 +14,6 @@ interface NavItem {
   label: string;
   roles?: UserRole[];
 }
-
-const navItems: NavItem[] = [
-  { href: "/dashboard", icon: "dashboard", label: "Dashboard" },
-  { href: "/query", icon: "forum", label: "Legal Assistant" },
-  { href: "/cases", icon: "work", label: "Cases" },
-  { href: "/documents/draft", icon: "edit_note", label: "Drafting" },
-  { href: "/statutes", icon: "balance", label: "Statutes" },
-  { href: "/resources", icon: "location_on", label: "Resources" },
-  { href: "/history", icon: "history", label: "History" },
-];
-
-const lawyerItems: NavItem[] = [
-  {
-    href: "/cases/analyze",
-    icon: "analytics",
-    label: "Case Analysis",
-    roles: ["lawyer", "legal_advisor"],
-  },
-];
 
 const ROLE_ICONS: Record<UserRole, string> = {
   citizen: "person",
@@ -44,7 +26,22 @@ const ROLE_ICONS: Record<UserRole, string> = {
 export default function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuthStore();
-  const { sidebarCollapsed, toggleSidebar, mobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
+  const { sidebarCollapsed, toggleSidebar, mobileSidebarOpen, setMobileSidebarOpen, selectedLanguage } = useUIStore();
+  const t = useTranslations(selectedLanguage);
+
+  const navItems: NavItem[] = [
+    { href: "/dashboard",       icon: "dashboard",   label: t.dashboard },
+    { href: "/query",           icon: "forum",        label: t.legalAssistant },
+    { href: "/cases",           icon: "work",         label: t.cases },
+    { href: "/documents/draft", icon: "edit_note",    label: t.drafting },
+    { href: "/statutes",        icon: "balance",      label: t.statutes },
+    { href: "/resources",       icon: "location_on",  label: t.resources },
+    { href: "/history",         icon: "history",      label: t.history },
+  ];
+
+  const lawyerItems: NavItem[] = [
+    { href: "/cases/analyze", icon: "analytics", label: "Case Analysis", roles: ["lawyer", "legal_advisor"] },
+  ];
 
   const allNavItems = [
     ...navItems,

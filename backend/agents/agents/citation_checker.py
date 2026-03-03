@@ -10,7 +10,7 @@ Ordering rule (enforced at crew level):
 NOT: ... → ResponseFormatter → CitationChecker
 (If formatter runs first, it has already shaped unverified content for the user.)
 
-Model: DeepSeek-Chat — accurate for structured verification tasks.
+Model: Mistral Large (primary) / Groq Llama 3.3 70B (fallback) — accurate for structured verification.
 The citation verification itself is deterministic (Qdrant scroll) —
 the LLM is only needed to parse the prior agent's output and call the tool.
 """

@@ -9,7 +9,7 @@ Ordering rule (enforced at crew level):
 The formatter only receives verified content. It never introduces new legal
 claims — its job is presentation, not content generation.
 
-Model: Groq (Llama 3.3 70B) — fast; formatting is a low-latency task.
+Model: Mistral Large (primary) / Groq Llama 3.3 70B (fallback) — formatting is a low-latency task.
 
 Role-specific output:
     citizen       — Simple language, step-by-step, practical next steps

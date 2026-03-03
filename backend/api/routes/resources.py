@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 
 import httpx
@@ -19,6 +20,7 @@ from backend.db.models.user import User
 router = APIRouter()
 
 SERP_API_KEY = os.getenv("SERP_API_KEY", "")
+_logger = logging.getLogger(__name__)
 
 # Legal aid income thresholds per state (INR per annum)
 _LEGAL_AID_THRESHOLD = 300_000  # ₹3 lakh default (NALSA national threshold)
@@ -71,7 +73,7 @@ async def find_nearby(
     )
 
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=8) as client:
             resp = await client.get(
                 "https://serpapi.com/search",
                 params={
@@ -86,9 +88,11 @@ async def find_nearby(
             resp.raise_for_status()
             data = resp.json()
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(502, detail=f"SERP API error: {exc}") from exc
+        _logger.warning("SerpAPI HTTP error %s — returning mock data: %s", exc.response.status_code, exc)
+        return _mock_response(request)
     except Exception as exc:
-        raise HTTPException(502, detail=f"Resource search unavailable: {exc}") from exc
+        _logger.warning("SerpAPI unavailable — returning mock data: %s", exc)
+        return _mock_response(request)
 
     results: list[ResourceResult] = []
     for place in data.get("local_results", [])[: request.limit]:

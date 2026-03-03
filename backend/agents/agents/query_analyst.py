@@ -4,8 +4,8 @@ First agent in every crew pipeline. Classifies the user's legal query,
 extracts entities, and determines whether statute normalization is needed
 before the retrieval step.
 
-Model: Groq (Llama 3.3 70B) — chosen for low latency. Classification is a
-structured output task that does not require deep reasoning.
+Model: Mistral Large (primary) / Groq Llama 3.3 70B (fallback) — fast classification.
+Classification is a structured output task that does not require deep reasoning.
 """
 
 from __future__ import annotations

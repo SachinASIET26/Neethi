@@ -3,8 +3,7 @@
 Third agent — activated ONLY for lawyer and legal_advisor roles.
 Performs structured IRAC analysis on the retrieved legal sections.
 
-Model: DeepSeek-R1 — strong chain-of-thought reasoning required for IRAC.
-Falls back to DeepSeek-Chat if R1 is unavailable.
+Model: Mistral Large (primary) / Groq Llama 3.3 70B (fallback) — strong reasoning for IRAC.
 
 NOT activated for citizen or police roles — they get direct formatted responses
 without the IRAC layer (it would be too complex and unnecessary for their needs).

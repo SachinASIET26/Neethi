@@ -163,7 +163,7 @@ export default function RegisterPage() {
           </div>
 
           <p className="text-xs text-slate-600">
-            Trusted by 50,000+ legal professionals across India
+            Where legal intelligence meets Indian jurisprudence.
           </p>
         </div>
       </div>
@@ -183,7 +183,7 @@ export default function RegisterPage() {
           <div>
             <h2 className="text-2xl font-bold text-white">Create your account</h2>
             <p className="text-slate-400 text-sm mt-1">
-              Join 50,000+ legal professionals on Neethi AI
+              AI-powered legal research. Verified. Cited. Instant.
             </p>
           </div>
 

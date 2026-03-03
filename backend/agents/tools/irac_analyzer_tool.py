@@ -1,6 +1,6 @@
 """IRACAnalyzerTool — Phase 5 legal reasoning tool.
 
-Calls Groq Llama 3.3 70B (primary) or Mistral Large (fallback) via LiteLLM
+Calls Mistral Large (primary) or Groq Llama 3.3 70B (fallback) via LiteLLM
 to produce a structured IRAC analysis from retrieved legal sections.
 Used exclusively by the LegalReasoner agent —
 activated only for lawyer and legal_advisor roles.
@@ -127,7 +127,7 @@ class IRACAnalyzerInput(BaseModel):
 class IRACAnalyzerTool(BaseTool):
     """Perform IRAC (Issue, Rule, Application, Conclusion) analysis on retrieved legal sections.
 
-    Uses Groq Llama 3.3 70B (primary) or Mistral Large (fallback) for legal reasoning.
+    Uses Mistral Large (primary) or Groq Llama 3.3 70B (fallback) for legal reasoning.
     Only activated for lawyer and legal_advisor roles.
 
     Input must include the raw text output from QdrantHybridSearchTool as
@@ -160,13 +160,13 @@ class IRACAnalyzerTool(BaseTool):
         original_query: str = "",
         user_role: str = "lawyer",
     ) -> str:
-        """Call Groq Llama 3.3 70B (sync) to produce IRAC analysis.
+        """Call Mistral Large (primary) or Groq Llama 3.3 70B (fallback) to produce IRAC analysis.
 
         Synchronous — CrewAI's BaseTool.run() calls _run() synchronously.
         Uses litellm.completion() (sync) instead of acompletion() to avoid
         the 'asyncio.run() cannot be called from a running event loop' error.
 
-        Falls back to Mistral Large if Groq is rate-limited.
+        Falls back to Groq Llama 3.3 70B if Mistral is unavailable or rate-limited.
         Handles both dict input and keyword args.
         """
         from litellm import completion
@@ -192,10 +192,10 @@ class IRACAnalyzerTool(BaseTool):
             user_role=user_role,
         )
 
-        # Try Groq first, fall back to Mistral Large
+        # Try Mistral Large first, fall back to Groq Llama 3.3 70B
         for model, api_key_env, temperature in [
-            ("groq/llama-3.3-70b-versatile", "GROQ_API_KEY", 0.1),
             ("mistral/mistral-large-latest", "MISTRAL_API_KEY", 0.1),
+            ("groq/llama-3.3-70b-versatile", "GROQ_API_KEY", 0.1),
         ]:
             api_key = os.getenv(api_key_env)
             if not api_key:
@@ -221,5 +221,5 @@ class IRACAnalyzerTool(BaseTool):
 
         return (
             "IRAC ANALYSIS ERROR: All LLM providers failed. "
-            "Check GROQ_API_KEY and MISTRAL_API_KEY environment variables."
+            "Check MISTRAL_API_KEY (primary) and GROQ_API_KEY (fallback) environment variables."
         )

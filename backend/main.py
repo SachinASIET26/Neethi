@@ -15,10 +15,12 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 
-# Load .env early so all os.getenv() calls see the values
+# Load .env early so all os.getenv() calls see the values.
+# Use an explicit path so it works regardless of CWD.
 try:
+    from pathlib import Path
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 except ImportError:
     pass
 
