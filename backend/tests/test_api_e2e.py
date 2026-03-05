@@ -447,6 +447,48 @@ async def test_cases(client: httpx.AsyncClient) -> None:
         else:
             fail("POST /cases/analyze (lawyer)", r.text[:200])
 
+async def test_similar_cases(client: httpx.AsyncClient) -> None:
+    section("Similar Cases (Indian Kanoon)")
+    token = state.get("lawyer_token") or state.get("citizen_token")
+    if not token:
+        print(f"  {YELLOW}⚠ Skipped — no token{RESET}")
+        return
+
+    # --- Search similar cases ---
+    r = await client.post("/cases/similar", headers=_hdr(token), json={
+        "query": "murder culpable homicide punishment",
+        "top_k": 3,
+    }, timeout=30)
+    
+    if r.status_code == 200:
+        d = r.json()
+        results = d.get("results", [])
+        total = d.get("total_found")
+        collection = d.get("collection")
+        ok("POST /cases/similar", f"found={total} collection={collection} time={d.get('search_time_ms')}ms")
+        
+        # Verify schema if results exist
+        if results:
+            first = results[0]
+            if "case_title" in first and "indian_kanoon_url" in first and "relevance_score" in first:
+                ok("POST /cases/similar (schema check)", "All required fields present in result")
+            else:
+                fail("POST /cases/similar (schema check)", f"Missing fields in result: {first.keys()}")
+    else:
+        fail("POST /cases/similar", r.text[:120])
+        
+    # --- Search with filters ---
+    r = await client.post("/cases/similar", headers=_hdr(token), json={
+        "query": "bail application",
+        "year_from": 2010,
+        "year_to": 2020,
+        "top_k": 1,
+    }, timeout=30)
+    
+    if r.status_code == 200:
+        ok("POST /cases/similar (with filters)", f"found={r.json().get('total_found')}")
+    else:
+        fail("POST /cases/similar (with filters)", r.text[:120])
 
 async def test_documents(client: httpx.AsyncClient) -> None:
     section("Document Drafting")
@@ -786,7 +828,7 @@ async def wait_for_server(_client: httpx.AsyncClient, retries: int = 20, delay: 
 # Main
 # ---------------------------------------------------------------------------
 
-ALL_GROUPS = ["health", "auth", "sections", "query", "cases", "documents", "resources", "translate", "voice", "admin"]
+ALL_GROUPS = ["health", "auth", "sections", "query", "cases", "similar_cases", "documents", "resources", "translate", "voice", "admin"]
 
 GROUP_MAP = {
     "health":    test_health,
@@ -794,6 +836,7 @@ GROUP_MAP = {
     "sections":  test_sections,
     "query":     test_query,
     "cases":     test_cases,
+    "similar_cases": test_similar_cases,
     "documents": test_documents,
     "resources": test_resources,
     "translate": test_translate,

@@ -10,10 +10,17 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
+    // BACKEND_URL is server-side only — browser never sees it.
+    // The browser always calls /api/v1/... (relative) → Next.js proxies here.
+    const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
     return [
       {
         source: "/api/v1/:path*",
-        destination: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"}/:path*`,
+        destination: `${backendUrl}/api/v1/:path*`,
+      },
+      {
+        source: "/health",
+        destination: `${backendUrl}/health`,
       },
     ];
   },

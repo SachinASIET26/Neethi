@@ -212,47 +212,47 @@ const IRAC_CONFIG: Array<{
   border: string;
   badge: string;
 }> = [
-  {
-    letter: "I",
-    label: "Issue",
-    key: "issue",
-    icon: "help_outline",
-    accent: "text-blue-600 dark:text-blue-400",
-    headerBg: "bg-blue-50 dark:bg-blue-500/10 border-b border-blue-200 dark:border-blue-500/20",
-    border: "border-blue-200 dark:border-blue-500/30",
-    badge: "bg-blue-100 dark:bg-blue-500/25 text-blue-700 dark:text-blue-300",
-  },
-  {
-    letter: "R",
-    label: "Rule",
-    key: "rule",
-    icon: "menu_book",
-    accent: "text-violet-600 dark:text-violet-400",
-    headerBg: "bg-violet-50 dark:bg-violet-500/10 border-b border-violet-200 dark:border-violet-500/20",
-    border: "border-violet-200 dark:border-violet-500/30",
-    badge: "bg-violet-100 dark:bg-violet-500/25 text-violet-700 dark:text-violet-300",
-  },
-  {
-    letter: "A",
-    label: "Application",
-    key: "application",
-    icon: "balance",
-    accent: "text-amber-600 dark:text-amber-400",
-    headerBg: "bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20",
-    border: "border-amber-200 dark:border-amber-500/30",
-    badge: "bg-amber-100 dark:bg-amber-500/25 text-amber-700 dark:text-amber-300",
-  },
-  {
-    letter: "C",
-    label: "Conclusion",
-    key: "conclusion",
-    icon: "task_alt",
-    accent: "text-emerald-600 dark:text-emerald-400",
-    headerBg: "bg-emerald-50 dark:bg-emerald-500/10 border-b border-emerald-200 dark:border-emerald-500/20",
-    border: "border-emerald-200 dark:border-emerald-500/30",
-    badge: "bg-emerald-100 dark:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300",
-  },
-];
+    {
+      letter: "I",
+      label: "Issue",
+      key: "issue",
+      icon: "help_outline",
+      accent: "text-blue-600 dark:text-blue-400",
+      headerBg: "bg-blue-50 dark:bg-blue-500/10 border-b border-blue-200 dark:border-blue-500/20",
+      border: "border-blue-200 dark:border-blue-500/30",
+      badge: "bg-blue-100 dark:bg-blue-500/25 text-blue-700 dark:text-blue-300",
+    },
+    {
+      letter: "R",
+      label: "Rule",
+      key: "rule",
+      icon: "menu_book",
+      accent: "text-violet-600 dark:text-violet-400",
+      headerBg: "bg-violet-50 dark:bg-violet-500/10 border-b border-violet-200 dark:border-violet-500/20",
+      border: "border-violet-200 dark:border-violet-500/30",
+      badge: "bg-violet-100 dark:bg-violet-500/25 text-violet-700 dark:text-violet-300",
+    },
+    {
+      letter: "A",
+      label: "Application",
+      key: "application",
+      icon: "balance",
+      accent: "text-amber-600 dark:text-amber-400",
+      headerBg: "bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20",
+      border: "border-amber-200 dark:border-amber-500/30",
+      badge: "bg-amber-100 dark:bg-amber-500/25 text-amber-700 dark:text-amber-300",
+    },
+    {
+      letter: "C",
+      label: "Conclusion",
+      key: "conclusion",
+      icon: "task_alt",
+      accent: "text-emerald-600 dark:text-emerald-400",
+      headerBg: "bg-emerald-50 dark:bg-emerald-500/10 border-b border-emerald-200 dark:border-emerald-500/20",
+      border: "border-emerald-200 dark:border-emerald-500/30",
+      badge: "bg-emerald-100 dark:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300",
+    },
+  ];
 
 function IRACCard({
   letter, label, content, icon, accent, headerBg, border, badge, sectionKey,
@@ -282,7 +282,7 @@ function IRACCard({
 const inputCls =
   "w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:border-primary/60 transition-colors";
 
-type ActiveTab = "search" | "analyze";
+type ActiveTab = "search" | "similar" | "analyze";
 
 /* ─── Page ───────────────────────────────────────────────────── */
 
@@ -292,7 +292,7 @@ export default function CasesPage() {
 
   const [tab, setTab] = useState<ActiveTab>("search");
 
-  /* Search state */
+  /* Search state (general) */
   const [searchQuery, setSearchQuery] = useState("");
   const [actFilter, setActFilter] = useState("");
   const [fromYear, setFromYear] = useState("");
@@ -301,6 +301,16 @@ export default function CasesPage() {
   const [searching, setSearching] = useState(false);
   const [searchResult, setSearchResult] = useState<CaseSearchResponse | null>(null);
   const [selectedCase, setSelectedCase] = useState<CaseResult | null>(null);
+
+  /* Similar SC Judgements state */
+  const [simQuery, setSimQuery] = useState("");
+  const [simFromYear, setSimFromYear] = useState("");
+  const [simToYear, setSimToYear] = useState("");
+  const [simVerdictType, setSimVerdictType] = useState("");
+  const [simCaseType, setSimCaseType] = useState("");
+  const [simTopK, setSimTopK] = useState("5");
+  const [simSearching, setSimSearching] = useState(false);
+  const [simResult, setSimResult] = useState<import("@/types").SimilarCasesResponse | null>(null);
 
   /* Analysis state */
   const [scenario, setScenario] = useState("");
@@ -330,6 +340,29 @@ export default function CasesPage() {
       toast.error("Case search failed. Please try again.");
     } finally {
       setSearching(false);
+    }
+  };
+
+  const handleSimilarSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!simQuery.trim()) return;
+    setSimSearching(true);
+    setSimResult(null);
+    try {
+      const data = await casesAPI.similarCases({
+        query: simQuery,
+        top_k: parseInt(simTopK),
+        year_from: simFromYear ? parseInt(simFromYear) : undefined,
+        year_to: simToYear ? parseInt(simToYear) : undefined,
+        verdict_type: simVerdictType || undefined,
+        case_type: simCaseType || undefined,
+      });
+      setSimResult(data);
+      if (data.results.length === 0) toast("No similar judgements found in the Indian Kanoon collection.", { icon: "🔍" });
+    } catch {
+      toast.error("Similar cases search failed. Please try again.");
+    } finally {
+      setSimSearching(false);
     }
   };
 
@@ -364,7 +397,7 @@ export default function CasesPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Case Law Research</h1>
             <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">
-              Search precedents and run IRAC analysis on legal scenarios
+              Search precedents, find similar judgements, and run IRAC analysis
             </p>
           </div>
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs text-gray-500 dark:text-slate-400">
@@ -375,7 +408,7 @@ export default function CasesPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 bg-gray-100 dark:bg-slate-800/60 rounded-xl p-1 w-fit border border-gray-200 dark:border-slate-700">
-          {(["search", ...(canAnalyze ? ["analyze"] : [])] as ActiveTab[]).map((t) => (
+          {(["search", "similar", ...(canAnalyze ? ["analyze"] : [])] as ActiveTab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -384,12 +417,19 @@ export default function CasesPage() {
                 tab === t ? "bg-primary text-white shadow" : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
               )}
             >
-              {t === "search" ? (
+              {t === "search" && (
                 <span className="flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[15px]">search</span>
                   Case Search
                 </span>
-              ) : (
+              )}
+              {t === "similar" && (
+                <span className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[15px]">difference</span>
+                  Similar SC Judgements
+                </span>
+              )}
+              {t === "analyze" && (
                 <span className="flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[15px]">psychology</span>
                   IRAC Analysis
@@ -432,7 +472,7 @@ export default function CasesPage() {
                   {[
                     { label: "Act Filter", value: actFilter, onChange: setActFilter, placeholder: "e.g. IPC, BNS", type: "text" },
                     { label: "From Year", value: fromYear, onChange: setFromYear, placeholder: "e.g. 2000", type: "number" },
-                    { label: "To Year",   value: toYear,   onChange: setToYear,   placeholder: "e.g. 2024", type: "number" },
+                    { label: "To Year", value: toYear, onChange: setToYear, placeholder: "e.g. 2024", type: "number" },
                   ].map((f) => (
                     <div key={f.label}>
                       <label className="text-[10px] text-gray-400 dark:text-slate-500 uppercase tracking-wider font-medium block mb-1">{f.label}</label>
@@ -512,10 +552,10 @@ export default function CasesPage() {
 
                   <div className="space-y-2">
                     {[
-                      { icon: "receipt_long",    label: "Citation",  value: selectedCase.citation,     mono: true },
-                      { icon: "account_balance", label: "Court",     value: selectedCase.court,         mono: false },
-                      { icon: "calendar_today",  label: "Judgment",  value: selectedCase.judgment_date, mono: false },
-                      { icon: "category",        label: "Domain",    value: selectedCase.legal_domain,  mono: false },
+                      { icon: "receipt_long", label: "Citation", value: selectedCase.citation, mono: true },
+                      { icon: "account_balance", label: "Court", value: selectedCase.court, mono: false },
+                      { icon: "calendar_today", label: "Judgment", value: selectedCase.judgment_date, mono: false },
+                      { icon: "category", label: "Domain", value: selectedCase.legal_domain, mono: false },
                     ].map((m) => (
                       <div key={m.label} className="flex items-center gap-2 text-xs">
                         <span className="material-symbols-outlined text-gray-400 dark:text-slate-500 text-[14px]">{m.icon}</span>
@@ -561,6 +601,179 @@ export default function CasesPage() {
                     </button>
                   )}
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Similar Judgements Tab ────────────────────────────── */}
+        {tab === "similar" && (
+          <div className="space-y-4">
+            <form onSubmit={handleSimilarSearch} className="bg-white dark:bg-[#0f172a] rounded-xl border border-gray-200 dark:border-slate-800 p-4 space-y-4 shadow-sm">
+              <div className="flex gap-2 sm:gap-3">
+                <div className="flex-1 relative">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500 text-[18px]">law</span>
+                  <input
+                    type="text"
+                    placeholder="Describe a case or enter a SC judgement citation to find similar cases in Indian Kanoon…"
+                    value={simQuery}
+                    onChange={(e) => setSimQuery(e.target.value)}
+                    className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg pl-9 pr-4 py-2.5 text-sm text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:border-primary/60 transition-colors"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={simSearching || !simQuery.trim()}
+                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:pointer-events-none flex-shrink-0"
+                >
+                  {simSearching
+                    ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <span className="material-symbols-outlined text-[16px]">difference</span>}
+                  <span className="hidden sm:inline">Find Similar</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div>
+                  <label className="text-[10px] text-gray-400 dark:text-slate-500 uppercase tracking-wider font-medium block mb-1">From Year</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 2010"
+                    value={simFromYear}
+                    onChange={(e) => setSimFromYear(e.target.value)}
+                    className={inputCls + " py-2 text-xs"}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-400 dark:text-slate-500 uppercase tracking-wider font-medium block mb-1">To Year</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 2024"
+                    value={simToYear}
+                    onChange={(e) => setSimToYear(e.target.value)}
+                    className={inputCls + " py-2 text-xs"}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-400 dark:text-slate-500 uppercase tracking-wider font-medium block mb-1">Verdict Type</label>
+                  <select value={simVerdictType} onChange={(e) => setSimVerdictType(e.target.value)} className={inputCls + " py-2 text-xs"}>
+                    <option value="">Any</option>
+                    <option value="allowed">Allowed</option>
+                    <option value="dismissed">Dismissed</option>
+                    <option value="disposed">Disposed</option>
+                    <option value="partly_allowed">Partly Allowed</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-400 dark:text-slate-500 uppercase tracking-wider font-medium block mb-1">Case Type</label>
+                  <select value={simCaseType} onChange={(e) => setSimCaseType(e.target.value)} className={inputCls + " py-2 text-xs"}>
+                    <option value="">Any</option>
+                    <option value="criminal">Criminal</option>
+                    <option value="civil">Civil</option>
+                    <option value="writ">Writ</option>
+                    <option value="slp">SLP</option>
+                    <option value="appellate">Appellate</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-400 dark:text-slate-500 uppercase tracking-wider font-medium block mb-1">Results</label>
+                  <select value={simTopK} onChange={(e) => setSimTopK(e.target.value)} className={inputCls + " py-2 text-xs"}>
+                    {["5", "10", "15", "20"].map((v) => <option key={v} value={v}>{v} results</option>)}
+                  </select>
+                </div>
+              </div>
+            </form>
+
+            {simSearching && (
+              <div className="flex justify-center py-16">
+                <div className="text-center space-y-3">
+                  <span className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin block mx-auto" />
+                  <p className="text-gray-500 dark:text-slate-400 text-sm">Searching Indian Kanoon via BGE-M3…</p>
+                </div>
+              </div>
+            )}
+
+            {!simSearching && simResult && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <p className="text-xs text-gray-500 dark:text-slate-500">
+                    {simResult.total_found} similar judgement{simResult.total_found !== 1 ? "s" : ""} found
+                    <span className="ml-2 text-gray-400 dark:text-slate-600">({simResult.search_time_ms}ms)</span>
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {simResult.results.map((c, i) => (
+                    <div key={i} className="flex flex-col bg-white dark:bg-[#0f172a] p-5 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm hover:border-gray-300 dark:hover:border-slate-700 transition-colors h-full">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white leading-snug line-clamp-2" title={c.case_title}>
+                          {c.case_title}
+                        </h3>
+                        {c.verdict_type && c.verdict_type !== "unknown" && (
+                          <span className={cn(
+                            "flex-shrink-0 text-[10px] px-2 py-0.5 rounded border capitalize whitespace-nowrap",
+                            c.verdict_type.includes("allow") ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20" :
+                              c.verdict_type.includes("dismiss") ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20" :
+                                "bg-gray-100 text-gray-600 border-gray-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                          )}>
+                            {c.verdict_type.replace("_", " ")}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="space-y-1 mb-3">
+                        <p className="text-xs font-mono text-gray-500 dark:text-slate-400">{c.citation} • {c.date}</p>
+                        <p className="text-[11px] text-gray-400 dark:text-slate-500 truncate" title={`${c.petitioner} v. ${c.respondent}`}>
+                          {c.petitioner} <span className="text-gray-300 dark:text-slate-600">v.</span> {c.respondent}
+                        </p>
+                      </div>
+
+                      <div className="mb-4">
+                        <RelevanceBar score={c.relevance_score} />
+                      </div>
+
+                      <p className="text-xs text-gray-600 dark:text-slate-300 line-clamp-3 leading-relaxed flex-grow mb-4">
+                        {c.summary}
+                      </p>
+
+                      <div className="mt-auto space-y-4">
+                        {c.legal_sections.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {c.legal_sections.slice(0, 3).map((s) => (
+                              <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50/50 text-blue-700 border border-blue-100/50 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20 font-mono truncate max-w-[120px]" title={s}>
+                                {s}
+                              </span>
+                            ))}
+                            {c.legal_sections.length > 3 && (
+                              <span className="text-[10px] text-gray-400 dark:text-slate-500">+{c.legal_sections.length - 3}</span>
+                            )}
+                          </div>
+                        )}
+
+                        <a
+                          href={c.indian_kanoon_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-medium text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700 transition-colors"
+                        >
+                          View in Indian Kanoon
+                          <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!simSearching && !simResult && (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <span className="material-symbols-outlined text-gray-200 dark:text-slate-700 text-6xl">difference</span>
+                <p className="text-gray-500 dark:text-slate-400 text-sm mt-3 font-medium">Find Similar SC Judgements</p>
+                <p className="text-gray-400 dark:text-slate-600 text-xs mt-1 max-w-sm">
+                  Search across 27,000+ Supreme Court judgements ingested from Indian Kanoon to find semantically similar precedents.
+                </p>
               </div>
             )}
           </div>
@@ -651,9 +864,9 @@ export default function CasesPage() {
                   <div className="space-y-3 text-left">
                     {[
                       { step: "Issue Identification", desc: "Extracting core legal questions" },
-                      { step: "Rule Retrieval",       desc: "Finding applicable statutes & precedents" },
-                      { step: "Fact Application",     desc: "Mapping law to the facts" },
-                      { step: "Conclusion",           desc: "Formulating legal outcome" },
+                      { step: "Rule Retrieval", desc: "Finding applicable statutes & precedents" },
+                      { step: "Fact Application", desc: "Mapping law to the facts" },
+                      { step: "Conclusion", desc: "Formulating legal outcome" },
                     ].map(({ step, desc }, i) => (
                       <div key={i} className="flex items-center gap-3">
                         <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0" />
@@ -678,8 +891,8 @@ export default function CasesPage() {
                     {analysis.verification_status === "VERIFIED"
                       ? "✓ Fully Verified"
                       : analysis.verification_status === "PARTIALLY_VERIFIED"
-                      ? "~ Partially Verified"
-                      : "✗ Unverified"}
+                        ? "~ Partially Verified"
+                        : "✗ Unverified"}
                   </span>
                   <span className={cn("text-xs font-semibold capitalize", getConfidenceColor(analysis.confidence))}>
                     {analysis.confidence} confidence
@@ -742,14 +955,14 @@ export default function CasesPage() {
                                 s.verification === "VERIFIED"
                                   ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20"
                                   : s.verification === "VERIFIED_INCOMPLETE"
-                                  ? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20"
-                                  : "bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border-red-200 dark:border-red-500/20"
+                                    ? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20"
+                                    : "bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border-red-200 dark:border-red-500/20"
                               )}>
                                 {s.verification === "VERIFIED"
                                   ? "Verified"
                                   : s.verification === "VERIFIED_INCOMPLETE"
-                                  ? "Partial"
-                                  : "Not Found"}
+                                    ? "Partial"
+                                    : "Not Found"}
                               </span>
                             </div>
                           ))}

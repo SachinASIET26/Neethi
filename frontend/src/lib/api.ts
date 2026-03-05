@@ -4,14 +4,18 @@ import type {
   RegisterRequest, RegisterResponse, LoginRequest, TokenResponse,
   RefreshResponse, UserProfile, QueryRequest, QueryResponse,
   QueryHistoryResponse, FeedbackRequest, CaseSearchRequest, CaseSearchResponse,
-  CaseAnalysisRequest, CaseAnalysisResponse, CaseDetail, TemplateListResponse,
+  CaseAnalysisRequest, CaseAnalysisResponse, CaseDetail,
+  SimilarCasesRequest, SimilarCasesResponse, TemplateListResponse,
   DraftRequest, DraftResponse, DraftUpdateRequest, ActListResponse, SectionDetail,
   NormalizeResponse, VerifyRequest, VerifyResponse, NearbyRequest, NearbyResponse,
   EligibilityResponse, TranslateTextRequest, TranslateTextResponse,
-  TranslateQueryRequest, TranslateQueryResponse, HealthResponse
+  TranslateQueryRequest, TranslateQueryResponse, HealthResponse,
+  UserListResponse, UserDetailResponse, UserUpdateRequest, AdminStats, ActivityResponse,
 } from "@/types";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+// Always use relative path — Next.js proxies /api/v1/* → backend (localhost:8000 or BACKEND_URL).
+// This works on Lightning AI, local dev, and production without any env var changes.
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
 // ===================== AXIOS INSTANCE =====================
 
@@ -186,6 +190,9 @@ export const casesAPI = {
   search: (data: CaseSearchRequest) =>
     apiClient.post<CaseSearchResponse>("/cases/search", data).then(r => r.data),
 
+  similarCases: (data: SimilarCasesRequest) =>
+    apiClient.post<SimilarCasesResponse>("/cases/similar", data).then(r => r.data),
+
   analyze: (data: CaseAnalysisRequest) =>
     apiClient.post<CaseAnalysisResponse>("/cases/analyze", data).then(r => r.data),
 
@@ -275,6 +282,21 @@ export const adminAPI = {
 
   toggleMistralFallback: (active: boolean) =>
     apiClient.post("/admin/mistral-fallback", { active }).then(r => r.data),
+
+  getStats: () =>
+    apiClient.get<AdminStats>("/admin/stats").then(r => r.data),
+
+  listUsers: (params?: { role?: string; is_active?: boolean; search?: string; limit?: number; offset?: number }) =>
+    apiClient.get<UserListResponse>("/admin/users", { params }).then(r => r.data),
+
+  getUser: (userId: string) =>
+    apiClient.get<UserDetailResponse>(`/admin/users/${userId}`).then(r => r.data),
+
+  updateUser: (userId: string, data: UserUpdateRequest) =>
+    apiClient.patch<UserDetailResponse>(`/admin/users/${userId}`, data).then(r => r.data),
+
+  getActivity: (params?: { role?: string; limit?: number; offset?: number }) =>
+    apiClient.get<ActivityResponse>("/admin/activity", { params }).then(r => r.data),
 };
 
 // ===================== VOICE =====================
@@ -359,7 +381,7 @@ export const voiceAPI = {
 // ===================== PUBLIC HEALTH =====================
 
 export const publicAPI = {
-  health: () => axios.get(`${process.env.NEXT_PUBLIC_API_URL?.replace("/api/v1", "") || "http://localhost:8000"}/health`).then(r => r.data),
+  health: () => axios.get("/health").then(r => r.data),
 };
 
 export default apiClient;

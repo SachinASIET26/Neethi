@@ -128,7 +128,7 @@ export interface SSECitationEvent {
   status: string;
 }
 
-export interface SSECompleteEvent extends Omit<QueryResponse, "query" | "response"> {}
+export interface SSECompleteEvent extends Omit<QueryResponse, "query" | "response"> { }
 
 export interface SSEErrorEvent {
   code: string;
@@ -199,6 +199,40 @@ export interface CaseDetail {
   sections_cited: string[];
   headnotes: string[];
   indexed_at: string;
+}
+
+export interface SimilarCasesRequest {
+  query: string;
+  top_k?: number;
+  year_from?: number;
+  year_to?: number;
+  verdict_type?: string;
+  case_type?: string;
+}
+
+export interface SimilarCase {
+  point_id: string;
+  case_title: string;
+  petitioner: string;
+  respondent: string;
+  judges: string[];
+  verdict_type: string;
+  case_type: string;
+  year?: number;
+  date: string;
+  citation: string;
+  legal_sections: string[];
+  summary: string;
+  key_holdings: string[];
+  indian_kanoon_url: string;
+  relevance_score: number;
+}
+
+export interface SimilarCasesResponse {
+  results: SimilarCase[];
+  total_found: number;
+  search_time_ms: number;
+  collection: string;
 }
 
 // ===================== DOCUMENTS TYPES =====================
@@ -420,6 +454,79 @@ export interface HealthResponse {
   }>;
   mistral_fallback_active: boolean;
   indexed_sections?: Record<string, number>;
+}
+
+export interface UserListItem {
+  user_id: string;
+  full_name: string;
+  email: string;
+  role: UserRole;
+  is_active: boolean;
+  is_email_verified: boolean;
+  query_count_today: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserListResponse {
+  total: number;
+  users: UserListItem[];
+}
+
+export interface UserDetailResponse {
+  user_id: string;
+  full_name: string;
+  email: string;
+  role: UserRole;
+  is_active: boolean;
+  is_email_verified: boolean;
+  bar_council_id?: string;
+  police_badge_id?: string;
+  organization?: string;
+  query_count_today: number;
+  total_queries: number;
+  total_drafts: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserUpdateRequest {
+  role?: UserRole;
+  is_active?: boolean;
+}
+
+export interface RoleCount {
+  role: string;
+  count: number;
+}
+
+export interface AdminStats {
+  total_users: number;
+  active_users: number;
+  users_by_role: RoleCount[];
+  total_queries_today: number;
+  total_queries_all_time: number;
+  total_drafts: number;
+  recent_signups_7d: number;
+}
+
+export interface ActivityItem {
+  query_id: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  user_role: string;
+  query_text: string;
+  verification_status?: string;
+  confidence?: string;
+  processing_time_ms?: number;
+  cached: boolean;
+  created_at: string;
+}
+
+export interface ActivityResponse {
+  total: number;
+  activities: ActivityItem[];
 }
 
 // ===================== API ERROR TYPES =====================
