@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
+from qdrant_client import QdrantClient
 
 from backend.api.dependencies import get_current_user, require_role
 from backend.api.schemas.cases import (
@@ -16,6 +18,9 @@ from backend.api.schemas.cases import (
     CaseSearchRequest,
     CaseSearchResponse,
     IRACSection,
+    SimilarCase,
+    SimilarCasesRequest,
+    SimilarCasesResponse,
 )
 from backend.db.models.user import User
 
@@ -147,6 +152,171 @@ async def analyze_case(
         applicable_precedents=[],
         confidence=confidence,
         verification_status="VERIFIED",
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /cases/similar — Indian Kanoon SC Judgement similarity search
+# ---------------------------------------------------------------------------
+
+@router.post("/similar", response_model=SimilarCasesResponse)
+async def similar_cases(
+    request: SimilarCasesRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve semantically similar Supreme Court judgements from the
+    Indian Kanoon collection using hybrid BGE-M3 + BM25 RRF search.
+
+    Supports optional filters for year range, verdict type, and case type.
+    Results include the direct Indian Kanoon URL for each judgement.
+    """
+    start = time.time()
+
+    try:
+        from qdrant_client.models import FieldCondition, Filter, MatchValue, Range
+
+        from backend.rag.embeddings import BGEM3Embedder
+        from backend.rag.hybrid_search import HybridSearcher
+        from backend.rag.qdrant_setup import (
+            COLLECTION_INDIAN_KANOON,
+            get_qdrant_client,
+        )
+
+        # Build optional payload filter
+        must = []
+        if request.year_from or request.year_to:
+            must.append(FieldCondition(
+                key="year",
+                range=Range(
+                    gte=request.year_from or 1950,
+                    lte=request.year_to or 2030,
+                ),
+            ))
+        if request.verdict_type:
+            must.append(FieldCondition(
+                key="verdict_type",
+                match=MatchValue(value=request.verdict_type),
+            ))
+        if request.case_type:
+            must.append(FieldCondition(
+                key="case_type",
+                match=MatchValue(value=request.case_type),
+            ))
+
+        qdrant_filter = Filter(must=must) if must else None
+
+        # Use the shared embedder singleton from the main app if available,
+        # otherwise instantiate (embedder loads from ONNX cache — fast after first load)
+        embedder = BGEM3Embedder()
+        client = get_qdrant_client()
+        searcher = HybridSearcher(qdrant_client=client, embedder=embedder)
+
+        # Run hybrid search in thread pool (BGE-M3 + Qdrant are blocking)
+        raw_results = await asyncio.to_thread(
+            searcher.search,
+            query=request.query,
+            collection=COLLECTION_INDIAN_KANOON,
+            top_k=request.top_k,
+            query_type="civil_conceptual",  # balanced dense/sparse for case law
+        )
+
+        # If there's a filter, apply it post-search (client-side) since the
+        # searcher's filter applies to act_filter/era_filter only.
+        # For indian_kanoon, we pass the qdrant_filter directly by overriding
+        # the search call with native Qdrant query when filters are present.
+        if qdrant_filter and must:
+            from qdrant_client.models import NamedSparseVector, SparseVector
+
+            from backend.rag.embeddings import sparse_dict_to_qdrant
+            from backend.rag.rrf import reciprocal_rank_fusion
+
+            candidates = request.top_k * 5
+            dense_query = await asyncio.to_thread(embedder.encode_dense, [request.query])
+            dense_query = dense_query[0]
+
+            dense_hits = await asyncio.to_thread(
+                client.search,
+                collection_name=COLLECTION_INDIAN_KANOON,
+                query_vector=("dense", dense_query),
+                query_filter=qdrant_filter,
+                limit=candidates,
+                with_payload=True,
+            )
+
+            sparse_batch = await asyncio.to_thread(embedder.encode_sparse, [request.query])
+            sv = sparse_dict_to_qdrant(sparse_batch[0])
+            sparse_hits = await asyncio.to_thread(
+                client.search,
+                collection_name=COLLECTION_INDIAN_KANOON,
+                query_vector=NamedSparseVector(name="sparse", vector=SparseVector(**sv)),
+                query_filter=qdrant_filter,
+                limit=candidates,
+                with_payload=True,
+            )
+
+            fused = reciprocal_rank_fusion(
+                dense_results=[{"point_id": str(h.id), "score": h.score, "payload": h.payload or {}} for h in dense_hits],
+                sparse_results=[{"point_id": str(h.id), "score": h.score, "payload": h.payload or {}} for h in sparse_hits],
+                top_k=request.top_k,
+            )
+
+            # Build SimilarCase list from fused results
+            results = [
+                SimilarCase(
+                    point_id=f["point_id"],
+                    case_title=f["payload"].get("case_title") or "Untitled Judgment",
+                    petitioner=f["payload"].get("petitioner", ""),
+                    respondent=f["payload"].get("respondent", ""),
+                    judges=f["payload"].get("judges", []),
+                    verdict_type=f["payload"].get("verdict_type", "unknown"),
+                    case_type=f["payload"].get("case_type", "other"),
+                    year=f["payload"].get("year"),
+                    date=f["payload"].get("date", ""),
+                    citation=f["payload"].get("citation") or f["payload"].get("primary_citation", ""),
+                    legal_sections=f["payload"].get("legal_sections", [])[:8],
+                    summary=f["payload"].get("summary", "")[:500],
+                    key_holdings=f["payload"].get("key_holdings", [])[:3],
+                    indian_kanoon_url=f["payload"].get("indian_kanoon_url", ""),
+                    relevance_score=round(f["rrf_score"], 4),
+                )
+                for f in fused[:request.top_k]
+            ]
+        else:
+            # No extra filters — map searcher results directly
+            results = [
+                SimilarCase(
+                    point_id=r.point_id,
+                    case_title=r.payload.get("case_title") or "Untitled Judgment",
+                    petitioner=r.payload.get("petitioner", ""),
+                    respondent=r.payload.get("respondent", ""),
+                    judges=r.payload.get("judges", []),
+                    verdict_type=r.payload.get("verdict_type", "unknown"),
+                    case_type=r.payload.get("case_type", "other"),
+                    year=r.payload.get("year"),
+                    date=r.payload.get("date", ""),
+                    citation=r.payload.get("citation") or r.payload.get("primary_citation", ""),
+                    legal_sections=r.payload.get("legal_sections", [])[:8],
+                    summary=r.payload.get("summary", "")[:500],
+                    key_holdings=r.payload.get("key_holdings", [])[:3],
+                    indian_kanoon_url=r.payload.get("indian_kanoon_url", ""),
+                    relevance_score=round(r.score, 4),
+                )
+                for r in raw_results
+            ]
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Similar cases search failed: {exc}",
+        ) from exc
+
+    elapsed = int((time.time() - start) * 1000)
+
+    return SimilarCasesResponse(
+        results=results,
+        total_found=len(results),
+        search_time_ms=elapsed,
+        collection=COLLECTION_INDIAN_KANOON,
     )
 
 

@@ -1,14 +1,21 @@
-"""Admin routes — health, ingestion, cache, Mistral fallback toggle."""
+"""Admin routes — health, ingestion, cache, Mistral fallback, user mgmt, stats."""
 
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.dependencies import get_cache, require_role
+from backend.db.database import get_db
 from backend.api.schemas.admin import (
+    ActivityItem,
+    ActivityResponse,
+    AdminStats,
     CacheFlushRequest,
     CacheFlushResponse,
     ComponentHealth,
@@ -17,8 +24,13 @@ from backend.api.schemas.admin import (
     JobStatus,
     MistralFallbackRequest,
     MistralFallbackResponse,
+    RoleCount,
+    UserDetail,
+    UserListItem,
+    UserListResponse,
+    UserUpdateRequest,
 )
-from backend.db.models.user import User
+from backend.db.models.user import Draft, QueryLog, User
 from backend.services.cache import ResponseCache
 
 router = APIRouter()
@@ -281,4 +293,257 @@ async def toggle_mistral_fallback(
     return MistralFallbackResponse(
         mistral_fallback_active=request.active,
         message=msg,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /admin/users
+# ---------------------------------------------------------------------------
+
+@router.get("/users", response_model=UserListResponse)
+async def list_users(
+    role: Optional[str] = Query(None, description="Filter by role"),
+    is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    search: Optional[str] = Query(None, description="Search name or email"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    _: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all users with optional filters."""
+    query = select(User)
+
+    if role:
+        query = query.where(User.role == role)
+    if is_active is not None:
+        query = query.where(User.is_active == is_active)
+    if search:
+        pattern = f"%{search}%"
+        query = query.where(
+            User.full_name.ilike(pattern) | User.email.ilike(pattern)
+        )
+
+    # Total count
+    count_q = select(func.count()).select_from(query.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+
+    # Fetch page
+    query = query.order_by(User.created_at.desc()).offset(offset).limit(limit)
+    result = await db.execute(query)
+    users = result.scalars().all()
+
+    return UserListResponse(
+        total=total,
+        users=[
+            UserListItem(
+                user_id=str(u.id),
+                full_name=u.full_name,
+                email=u.email,
+                role=u.role,
+                is_active=u.is_active,
+                is_email_verified=u.is_email_verified,
+                query_count_today=u.query_count_today,
+                created_at=u.created_at,
+                updated_at=u.updated_at,
+            )
+            for u in users
+        ],
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /admin/users/{user_id}
+# ---------------------------------------------------------------------------
+
+@router.get("/users/{user_id}", response_model=UserDetail)
+async def get_user(
+    user_id: str,
+    _: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get detailed info for a single user."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, detail="User not found.")
+
+    # Count queries
+    q_count = (await db.execute(
+        select(func.count()).select_from(QueryLog).where(QueryLog.user_id == user.id)
+    )).scalar() or 0
+
+    # Count drafts
+    d_count = (await db.execute(
+        select(func.count()).select_from(Draft).where(Draft.user_id == user.id)
+    )).scalar() or 0
+
+    return UserDetail(
+        user_id=str(user.id),
+        full_name=user.full_name,
+        email=user.email,
+        role=user.role,
+        is_active=user.is_active,
+        is_email_verified=user.is_email_verified,
+        bar_council_id=user.bar_council_id,
+        police_badge_id=user.police_badge_id,
+        organization=user.organization,
+        query_count_today=user.query_count_today,
+        total_queries=q_count,
+        total_drafts=d_count,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# PATCH /admin/users/{user_id}
+# ---------------------------------------------------------------------------
+
+@router.patch("/users/{user_id}", response_model=UserDetail)
+async def update_user(
+    user_id: str,
+    request: UserUpdateRequest,
+    _: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a user's role or active status."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, detail="User not found.")
+
+    if request.role is not None:
+        user.role = request.role
+    if request.is_active is not None:
+        user.is_active = request.is_active
+
+    await db.commit()
+    await db.refresh(user)
+
+    # Re-fetch counts for response
+    q_count = (await db.execute(
+        select(func.count()).select_from(QueryLog).where(QueryLog.user_id == user.id)
+    )).scalar() or 0
+    d_count = (await db.execute(
+        select(func.count()).select_from(Draft).where(Draft.user_id == user.id)
+    )).scalar() or 0
+
+    return UserDetail(
+        user_id=str(user.id),
+        full_name=user.full_name,
+        email=user.email,
+        role=user.role,
+        is_active=user.is_active,
+        is_email_verified=user.is_email_verified,
+        bar_council_id=user.bar_council_id,
+        police_badge_id=user.police_badge_id,
+        organization=user.organization,
+        query_count_today=user.query_count_today,
+        total_queries=q_count,
+        total_drafts=d_count,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /admin/stats
+# ---------------------------------------------------------------------------
+
+@router.get("/stats", response_model=AdminStats)
+async def get_admin_stats(
+    _: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Aggregate dashboard statistics."""
+    # Total & active users
+    total_users = (await db.execute(select(func.count()).select_from(User))).scalar() or 0
+    active_users = (await db.execute(
+        select(func.count()).select_from(User).where(User.is_active == True)
+    )).scalar() or 0
+
+    # Users by role
+    role_rows = await db.execute(
+        select(User.role, func.count(User.id).label("cnt")).group_by(User.role)
+    )
+    users_by_role = [RoleCount(role=r.role, count=r.cnt) for r in role_rows]
+
+    # Queries today
+    from datetime import date
+    today_start = datetime.combine(date.today(), datetime.min.time()).replace(tzinfo=timezone.utc)
+    queries_today = (await db.execute(
+        select(func.count()).select_from(QueryLog).where(QueryLog.created_at >= today_start)
+    )).scalar() or 0
+
+    # All-time queries
+    queries_all = (await db.execute(
+        select(func.count()).select_from(QueryLog)
+    )).scalar() or 0
+
+    # Total drafts
+    total_drafts = (await db.execute(
+        select(func.count()).select_from(Draft)
+    )).scalar() or 0
+
+    # Recent signups (last 7 days)
+    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    recent_signups = (await db.execute(
+        select(func.count()).select_from(User).where(User.created_at >= seven_days_ago)
+    )).scalar() or 0
+
+    return AdminStats(
+        total_users=total_users,
+        active_users=active_users,
+        users_by_role=users_by_role,
+        total_queries_today=queries_today,
+        total_queries_all_time=queries_all,
+        total_drafts=total_drafts,
+        recent_signups_7d=recent_signups,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /admin/activity
+# ---------------------------------------------------------------------------
+
+@router.get("/activity", response_model=ActivityResponse)
+async def get_activity(
+    role: Optional[str] = Query(None, description="Filter by user role"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    _: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """System-wide query activity log."""
+    query = select(QueryLog, User).join(User, QueryLog.user_id == User.id)
+
+    if role:
+        query = query.where(User.role == role)
+
+    # Total count
+    count_q = select(func.count()).select_from(query.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+
+    # Fetch page
+    query = query.order_by(QueryLog.created_at.desc()).offset(offset).limit(limit)
+    rows = (await db.execute(query)).all()
+
+    return ActivityResponse(
+        total=total,
+        activities=[
+            ActivityItem(
+                query_id=str(ql.id),
+                user_id=str(u.id),
+                user_name=u.full_name,
+                user_email=u.email,
+                user_role=u.role,
+                query_text=ql.query_text,
+                verification_status=ql.verification_status,
+                confidence=ql.confidence,
+                processing_time_ms=ql.processing_time_ms,
+                cached=ql.cached,
+                created_at=ql.created_at,
+            )
+            for ql, u in rows
+        ],
     )

@@ -90,15 +90,20 @@ app = FastAPI(
 # ---------------------------------------------------------------------------
 
 # 1. CORS
-_CORS_ORIGINS = os.getenv(
-    "CORS_ORIGINS",
-    "http://localhost:3000,https://neethiai.com",
-).split(",")
+# On Lightning AI set: CORS_ORIGINS="*"
+# Wildcard requires allow_credentials=False (JWT Authorization header still works fine)
+_raw_cors = os.getenv("CORS_ORIGINS", "http://localhost:3000,https://neethiai.com")
+if _raw_cors.strip() == "*":
+    _CORS_ORIGINS = ["*"]
+    _CORS_CREDENTIALS = False   # required by Starlette when origins=["*"]
+else:
+    _CORS_ORIGINS = [o.strip() for o in _raw_cors.split(",")]
+    _CORS_CREDENTIALS = True
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in _CORS_ORIGINS],
-    allow_credentials=True,
+    allow_origins=_CORS_ORIGINS,
+    allow_credentials=_CORS_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

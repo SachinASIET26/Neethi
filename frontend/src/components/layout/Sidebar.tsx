@@ -30,22 +30,29 @@ export default function Sidebar() {
   const t = useTranslations(selectedLanguage);
 
   const navItems: NavItem[] = [
-    { href: "/dashboard",       icon: "dashboard",   label: t.dashboard },
-    { href: "/query",           icon: "forum",        label: t.legalAssistant },
-    { href: "/cases",           icon: "work",         label: t.cases },
-    { href: "/documents/draft", icon: "edit_note",    label: t.drafting },
-    { href: "/statutes",        icon: "balance",      label: t.statutes },
-    { href: "/resources",       icon: "location_on",  label: t.resources },
-    { href: "/history",         icon: "history",      label: t.history },
+    { href: "/dashboard", icon: "dashboard", label: t.dashboard },
+    { href: "/query", icon: "forum", label: t.legalAssistant },
+    { href: "/cases", icon: "work", label: t.cases },
+    { href: "/documents/draft", icon: "edit_note", label: t.drafting },
+    { href: "/statutes", icon: "balance", label: t.statutes },
+    { href: "/resources", icon: "location_on", label: t.resources },
+    { href: "/history", icon: "history", label: t.history },
   ];
 
   const lawyerItems: NavItem[] = [
     { href: "/cases/analyze", icon: "analytics", label: "Case Analysis", roles: ["lawyer", "legal_advisor"] },
   ];
 
+  const adminItems: NavItem[] = [
+    { href: "/admin", icon: "admin_panel_settings", label: "Admin", roles: ["admin"] },
+    { href: "/admin/users", icon: "group", label: "Users", roles: ["admin"] },
+    { href: "/admin/activity", icon: "monitoring", label: "Activity", roles: ["admin"] },
+  ];
+
   const allNavItems = [
     ...navItems,
     ...(user && ["lawyer", "legal_advisor"].includes(user.role) ? lawyerItems : []),
+    ...(user && user.role === "admin" ? adminItems : []),
   ];
 
   const closeMobile = () => setMobileSidebarOpen(false);
