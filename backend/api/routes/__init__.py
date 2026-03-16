@@ -4,6 +4,8 @@ from backend.api.routes import (
     admin,
     auth,
     cases,
+    conversation,
+    document_analysis,
     documents,
     query,
     resources,
@@ -13,6 +15,6 @@ from backend.api.routes import (
 )
 
 __all__ = [
-    "admin", "auth", "cases", "documents",
-    "query", "resources", "sections", "translate", "voice",
+    "admin", "auth", "cases", "conversation", "document_analysis",
+    "documents", "query", "resources", "sections", "translate", "voice",
 ]

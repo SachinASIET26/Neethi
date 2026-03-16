@@ -11,6 +11,7 @@ import type {
   TranslateTextRequest, TranslateTextResponse,
   TranslateQueryRequest, TranslateQueryResponse, HealthResponse,
   UserListResponse, UserDetailResponse, UserUpdateRequest, AdminStats, ActivityResponse,
+  TurnRequest, TurnResponse, SessionResponse,
 } from "@/types";
 
 // Always use relative path — Next.js proxies /api/v1/* → backend (localhost:8000 or BACKEND_URL).
@@ -120,6 +121,92 @@ export function createQueryStream(
   const controller = new AbortController();
 
   fetch(`${BASE_URL}/query/ask/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+      "Accept": "text/event-stream",
+    },
+    body: JSON.stringify(data),
+    signal: controller.signal,
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const reader = response.body?.getReader();
+      if (!reader) return;
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (!aborted) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+
+        for (const chunk of lines) {
+          if (!chunk.trim()) continue;
+
+          let eventType = "message";
+          let eventData = "";
+
+          for (const line of chunk.split("\n")) {
+            if (line.startsWith("event: ")) {
+              eventType = line.slice(7).trim();
+            } else if (line.startsWith("data: ")) {
+              eventData = line.slice(6).trim();
+            }
+          }
+
+          if (eventData) {
+            try {
+              const parsed = JSON.parse(eventData);
+              onEvent(eventType, parsed);
+            } catch {
+              onEvent(eventType, eventData);
+            }
+          }
+        }
+      }
+    })
+    .catch((err) => {
+      if (!aborted && onError) {
+        onError(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+
+  return () => {
+    aborted = true;
+    controller.abort();
+  };
+}
+
+// ===================== CONVERSATION =====================
+
+export const conversationAPI = {
+  turn: (data: TurnRequest) =>
+    apiClient.post<TurnResponse>("/conversation/turn", data).then(r => r.data),
+
+  getSession: (sessionId: string) =>
+    apiClient.get<SessionResponse>(`/conversation/session/${sessionId}`).then(r => r.data),
+};
+
+// SSE streaming helper for conversation turns
+export function createTurnStream(
+  data: TurnRequest,
+  onEvent: (event: string, payload: unknown) => void,
+  onError?: (error: Error) => void
+): () => void {
+  const token = Cookies.get("neethi_token");
+
+  let aborted = false;
+  const controller = new AbortController();
+
+  fetch(`${BASE_URL}/conversation/turn/stream`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

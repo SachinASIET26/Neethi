@@ -69,6 +69,9 @@ class User(Base):
     feedback: Mapped[list["QueryFeedback"]] = relationship(
         "QueryFeedback", back_populates="user", cascade="all, delete-orphan"
     )
+    sessions: Mapped[list["ConversationSession"]] = relationship(
+        "ConversationSession", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -184,3 +187,43 @@ class QueryFeedback(Base):
     query_log: Mapped[Optional["QueryLog"]] = relationship(
         "QueryLog", back_populates="feedback"
     )
+
+
+# ---------------------------------------------------------------------------
+# Conversation Session
+# ---------------------------------------------------------------------------
+
+class ConversationSession(Base):
+    __tablename__ = "conversation_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+
+    session_id: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False, index=True
+    )
+
+    # Accumulated conversation context (scenario, entities, emotional_tone, etc.)
+    context: Mapped[Optional[dict]] = mapped_column(JSONB, default=dict)
+
+    # History of classified intents for this session
+    intent_history: Mapped[Optional[list]] = mapped_column(JSONB, default=list)
+
+    turn_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    # active | resolved | handed_off
+    status: Mapped[str] = mapped_column(String(20), default="active")
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="sessions")

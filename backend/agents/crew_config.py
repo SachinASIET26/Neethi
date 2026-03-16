@@ -916,3 +916,62 @@ def get_crew_for_role(user_role: str, stream: bool = False) -> Crew:
         )
     logger.info("get_crew_for_role: building %s crew (stream=%s)", user_role, stream)
     return factory(stream=stream)
+
+
+# ---------------------------------------------------------------------------
+# Document Analysis Crew (stub — requires PageIndex)
+# ---------------------------------------------------------------------------
+
+def make_document_analysis_crew(stream: bool = False) -> Crew:
+    """Create a crew for document analysis using PageIndex.
+
+    Pipeline: DocumentAnalyst → CitationChecker
+
+    Currently a stub — the DocumentAnalyst agent has no tools until
+    PageIndex API key is configured.
+    """
+    from backend.agents.agents.document_analyst import make_document_analyst
+
+    analyst = make_document_analyst()
+    checker = make_citation_checker()
+
+    analysis_task = Task(
+        description=(
+            "Analyze the uploaded legal document.\n"
+            "Extract key provisions, obligations, rights, deadlines, and risk areas.\n"
+            "Provide a structured summary with references to specific clauses.\n\n"
+            "Document context: {query}"
+        ),
+        expected_output=(
+            "Structured document analysis including:\n"
+            "1. Document type and purpose\n"
+            "2. Key provisions and clauses\n"
+            "3. Obligations and rights of each party\n"
+            "4. Important dates and deadlines\n"
+            "5. Risk areas and potential issues\n"
+            "6. References to applicable statutory provisions"
+        ),
+        agent=analyst,
+    )
+
+    verification_task = Task(
+        description=(
+            "Verify all statutory references and citations in the document analysis.\n"
+            "Check that every section number and act reference is accurate.\n"
+            "Flag any unverified claims."
+        ),
+        expected_output=(
+            "Verified document analysis with:\n"
+            "- Verification status for each cited provision\n"
+            "- Corrected section references where needed\n"
+            "- Overall confidence assessment"
+        ),
+        agent=checker,
+    )
+
+    return Crew(
+        agents=[analyst, checker],
+        tasks=[analysis_task, verification_task],
+        process=Process.sequential,
+        verbose=False,
+    )

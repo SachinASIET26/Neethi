@@ -7,11 +7,12 @@ import remarkGfm from "remark-gfm";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore, LANGUAGES } from "@/store/ui";
 import { useTranslations } from "@/lib/i18n";
-import { createQueryStream, translateAPI, voiceAPI } from "@/lib/api";
+import { createQueryStream, createTurnStream, translateAPI, voiceAPI } from "@/lib/api";
 import { getVerificationColor, getConfidenceColor, cn } from "@/lib/utils";
 import type {
-  QueryResponse, CitationResult,
+  QueryResponse, CitationResult, ActionSuggestion,
   SSEAgentEvent, SSETokenEvent, SSECompleteEvent,
+  SSEIntentEvent, SSEClarificationEvent, SSEActionSuggestionsEvent,
 } from "@/types";
 import toast from "react-hot-toast";
 
@@ -24,6 +25,10 @@ interface Message {
   metadata?: Partial<QueryResponse>;
   agents?: string[];
   progress?: number;
+  suggestions?: ActionSuggestion[];
+  needsClarification?: boolean;
+  clarificationQuestions?: string[];
+  intent?: string;
 }
 
 const AGENT_DISPLAY: Record<string, { label: string; icon: string }> = {
@@ -72,6 +77,12 @@ function QueryContent() {
   const [voiceOverEnabled, setVoiceOverEnabled] = useState(false);
   const [isTTSLoading, setIsTTSLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("neethi-session-id");
+    }
+    return null;
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -93,6 +104,186 @@ function QueryContent() {
     if (initialQuery) handleSend(initialQuery);
   }, []); // eslint-disable-line
 
+  // ── New Conversation Handler ───────────────────────────────────────
+  const handleNewConversation = useCallback(() => {
+    setSessionId(null);
+    setMessages([]);
+    localStorage.removeItem("neethi-session-id");
+  }, []);
+
+  // ── Action Button Handler ───────────────────────────────────────────
+  const handleActionClick = useCallback((actionId: string) => {
+    if (isStreaming || !sessionId) return;
+    const msgId = Date.now().toString();
+    const assistantId = `${msgId}-ai`;
+
+    latestContentRef.current = "";
+    setMessages((prev) => [
+      ...prev,
+      { id: assistantId, role: "assistant", content: "", isStreaming: true, agents: [], progress: 0 },
+    ]);
+    setIsStreaming(true);
+
+    const stop = createTurnStream(
+      { session_id: sessionId, message: "", action_id: actionId, language: selectedLanguage },
+      async (event, payload) => {
+        _handleStreamEvent(event, payload, assistantId, "");
+      },
+      (_err) => {
+        toast.error("Streaming unavailable.");
+        setIsStreaming(false);
+      }
+    );
+    stopStreamRef.current = stop;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStreaming, sessionId, selectedLanguage]);
+
+  // ── Shared SSE event handler ────────────────────────────────────────
+  const _handleStreamEvent = useCallback(async (event: string, payload: unknown, assistantId: string, originalQuery: string) => {
+    if (event === "intent") {
+      const p = payload as SSEIntentEvent;
+      setMessages((prev) =>
+        prev.map((m) => m.id === assistantId ? { ...m, intent: p.intent } : m)
+      );
+    } else if (event === "clarification") {
+      const p = payload as SSEClarificationEvent;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? { ...m, needsClarification: true, clarificationQuestions: p.questions }
+            : m
+        )
+      );
+    } else if (event === "action_suggestions") {
+      const p = payload as SSEActionSuggestionsEvent;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId ? { ...m, suggestions: p.suggestions } : m
+        )
+      );
+    } else if (event === "agent_start") {
+      const p = payload as SSEAgentEvent;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? { ...m, agents: [...(m.agents || []), p.agent], progress: Math.min((m.progress || 0) + 20, 90) }
+            : m
+        )
+      );
+    } else if (event === "token") {
+      const p = payload as SSETokenEvent;
+      latestContentRef.current += p.text;
+      setMessages((prev) =>
+        prev.map((m) => m.id === assistantId ? { ...m, content: m.content + p.text } : m)
+      );
+    } else if (event === "complete") {
+      const p = payload as SSECompleteEvent & { session_id?: string; needs_clarification?: boolean };
+
+      // Persist session ID from response
+      if (p.session_id) {
+        setSessionId(p.session_id);
+        localStorage.setItem("neethi-session-id", p.session_id);
+      }
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? { ...m, isStreaming: false, metadata: p, progress: 100, needsClarification: p.needs_clarification }
+            : m
+        )
+      );
+      setIsStreaming(false);
+
+      // Persist to localStorage for history preview
+      try {
+        const stored = JSON.parse(localStorage.getItem("neethi-chat-history") || "[]") as Array<{
+          query: string; response: string; timestamp: string;
+          verification_status?: string; confidence?: string;
+        }>;
+        stored.unshift({
+          query: originalQuery,
+          response: latestContentRef.current,
+          timestamp: new Date().toISOString(),
+          verification_status: p.verification_status,
+          confidence: p.confidence,
+        });
+        localStorage.setItem("neethi-chat-history", JSON.stringify(stored.slice(0, 100)));
+      } catch { /* ignore quota errors */ }
+
+      let ttsContent = latestContentRef.current;
+
+      // Auto-translate response if a non-English language is selected
+      if (selectedLanguage !== "en") {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, content: m.content + "\n\n*(Translating…)*" } : m
+          )
+        );
+        try {
+          const translated = await translateAPI.translateText({
+            text: ttsContent,
+            source_language: "en",
+            target_language: selectedLanguage,
+            domain: "legal",
+          });
+          ttsContent = translated.translated_text;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, content: ttsContent } : m
+            )
+          );
+        } catch {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: m.content.replace("\n\n*(Translating…)*", "") }
+                : m
+            )
+          );
+        }
+      }
+
+      // Auto-play TTS if voiceover toggle is on
+      if (voiceOverEnabledRef.current && ttsContent) {
+        void (async () => {
+          const langCode = SARVAM_LANG_MAP[selectedLanguage] || "en-IN";
+          const cleanText = ttsContent.replace(/[#*`_\[\]>~]/g, "").trim();
+          if (!cleanText) return;
+          setIsTTSLoading(true);
+          try {
+            const blob = await voiceAPI.textToSpeech(cleanText, langCode);
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            audioRef.current = audio;
+            setIsPlaying(true);
+            audio.onended = () => { setIsPlaying(false); URL.revokeObjectURL(url); audioRef.current = null; };
+            audio.onerror = () => { setIsPlaying(false); URL.revokeObjectURL(url); audioRef.current = null; };
+            await audio.play();
+          } catch {
+            // auto-play TTS failure is non-fatal
+          } finally {
+            setIsTTSLoading(false);
+          }
+        })();
+      }
+    } else if (event === "error") {
+      const errPayload = payload as { detail?: string; code?: string };
+      const errMsg = errPayload?.detail || errPayload?.code || "An error occurred. Please try again.";
+      toast.error(errMsg, { duration: 8000 });
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? { ...m, isStreaming: false, content: `⚠️ **Pipeline error:** ${errMsg}` }
+            : m
+        )
+      );
+      setIsStreaming(false);
+    } else if (event === "end") {
+      setIsStreaming(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLanguage]);
+
   // ── Send Handler ───────────────────────────────────────────────────
   const handleSend = useCallback(async (queryText?: string) => {
     const originalQuery = (queryText || input).trim();
@@ -110,158 +301,34 @@ function QueryContent() {
     setInput("");
     setIsStreaming(true);
 
-    // Pre-translate non-English queries to English before sending to the pipeline.
-    // The legal pipeline only understands English; translations of the response
-    // back to the user's language happen after the pipeline completes.
-    let englishQuery = originalQuery;
-    if (selectedLanguage !== "en") {
-      try {
-        const translated = await translateAPI.translateQuery({
-          query: originalQuery,
-          source_language: selectedLanguage,
-        });
-        englishQuery = translated.english_query || originalQuery;
-      } catch {
-        // Non-fatal — fall back to sending original query
-        englishQuery = originalQuery;
-      }
-    }
-
-    const stop = createQueryStream(
-      { query: englishQuery, language: selectedLanguage, include_precedents: includePrecedents },
+    // Use conversation turn stream (new conversational path)
+    const stop = createTurnStream(
+      {
+        session_id: sessionId || undefined,
+        message: originalQuery,
+        language: selectedLanguage,
+      },
       async (event, payload) => {
-        if (event === "agent_start") {
-          const p = payload as SSEAgentEvent;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, agents: [...(m.agents || []), p.agent], progress: Math.min((m.progress || 0) + 20, 90) }
-                : m
-            )
-          );
-        } else if (event === "token") {
-          const p = payload as SSETokenEvent;
-          latestContentRef.current += p.text;
-          setMessages((prev) =>
-            prev.map((m) => m.id === assistantId ? { ...m, content: m.content + p.text } : m)
-          );
-        } else if (event === "complete") {
-          const p = payload as SSECompleteEvent;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, isStreaming: false, metadata: p, progress: 100 } : m
-            )
-          );
-          setIsStreaming(false);
-
-          // Persist to localStorage for history preview
-          try {
-            const stored = JSON.parse(localStorage.getItem("neethi-chat-history") || "[]") as Array<{
-              query: string; response: string; timestamp: string;
-              verification_status?: string; confidence?: string;
-            }>;
-            stored.unshift({
-              query: originalQuery,
-              response: latestContentRef.current,
-              timestamp: new Date().toISOString(),
-              verification_status: p.verification_status,
-              confidence: p.confidence,
-            });
-            localStorage.setItem("neethi-chat-history", JSON.stringify(stored.slice(0, 100)));
-          } catch { /* ignore quota errors */ }
-
-          // Capture the final content from ref (accumulated by token events)
-          let ttsContent = latestContentRef.current;
-
-          // Auto-translate response if a non-English language is selected
-          if (selectedLanguage !== "en") {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId ? { ...m, content: m.content + "\n\n*(Translating…)*" } : m
-              )
-            );
-            try {
-              const translated = await translateAPI.translateText({
-                text: ttsContent,
-                source_language: "en",
-                target_language: selectedLanguage,
-                domain: "legal",
-              });
-              ttsContent = translated.translated_text;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId
-                    ? { ...m, content: ttsContent }
-                    : m
-                )
-              );
-            } catch {
-              // remove translating indicator silently on failure
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId
-                    ? { ...m, content: m.content.replace("\n\n*(Translating…)*", "") }
-                    : m
-                )
-              );
-            }
-          }
-
-          // Auto-play TTS if voiceover toggle is on
-          if (voiceOverEnabledRef.current && ttsContent) {
-            void (async () => {
-              const langCode = SARVAM_LANG_MAP[selectedLanguage] || "en-IN";
-              const cleanText = ttsContent.replace(/[#*`_\[\]>~]/g, "").trim();
-              if (!cleanText) return;
-              setIsTTSLoading(true);
-              try {
-                const blob = await voiceAPI.textToSpeech(cleanText, langCode);
-                const url = URL.createObjectURL(blob);
-                const audio = new Audio(url);
-                audioRef.current = audio;
-                setIsPlaying(true);
-                audio.onended = () => {
-                  setIsPlaying(false);
-                  URL.revokeObjectURL(url);
-                  audioRef.current = null;
-                };
-                audio.onerror = () => {
-                  setIsPlaying(false);
-                  URL.revokeObjectURL(url);
-                  audioRef.current = null;
-                };
-                await audio.play();
-              } catch {
-                // auto-play TTS failure is non-fatal
-              } finally {
-                setIsTTSLoading(false);
-              }
-            })();
-          }
-        } else if (event === "error") {
-          const errPayload = payload as { detail?: string; code?: string };
-          const errMsg = errPayload?.detail || errPayload?.code || "An error occurred. Please try again.";
-          toast.error(errMsg, { duration: 8000 });
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, isStreaming: false, content: `⚠️ **Pipeline error:** ${errMsg}` }
-                : m
-            )
-          );
-          setIsStreaming(false);
-        } else if (event === "end") {
-          setIsStreaming(false);
-        }
+        _handleStreamEvent(event, payload, assistantId, originalQuery);
       },
       (_err) => {
-        toast.error("Streaming unavailable.");
-        setIsStreaming(false);
+        // Fallback to old query stream if conversation endpoint unavailable
+        const fallbackStop = createQueryStream(
+          { query: originalQuery, language: selectedLanguage, include_precedents: includePrecedents },
+          async (event, payload) => {
+            _handleStreamEvent(event, payload, assistantId, originalQuery);
+          },
+          (_fallbackErr) => {
+            toast.error("Streaming unavailable.");
+            setIsStreaming(false);
+          }
+        );
+        stopStreamRef.current = fallbackStop;
       }
     );
     stopStreamRef.current = stop;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input, isStreaming, selectedLanguage, includePrecedents]);
+  }, [input, isStreaming, selectedLanguage, includePrecedents, sessionId, _handleStreamEvent]);
 
   const handleStop = () => {
     stopStreamRef.current?.();
@@ -654,6 +721,24 @@ function QueryContent() {
                       </div>
                     )}
 
+                    {/* Action Suggestion Buttons */}
+                    {!message.isStreaming && (message.suggestions?.length ?? 0) > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {message.suggestions!.map((s) => (
+                          <button
+                            key={s.id}
+                            onClick={() => handleActionClick(s.id)}
+                            disabled={isStreaming}
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-[#0f172a] text-sm text-gray-700 dark:text-slate-300 hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition-all disabled:opacity-40 disabled:pointer-events-none"
+                            title={s.description}
+                          >
+                            <span className="material-symbols-outlined text-[16px]">{s.icon}</span>
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Disclaimer */}
                     {!message.isStreaming && message.content && (
                       <p className="text-[10px] text-gray-400 dark:text-slate-600 border-l-2 border-gray-200 dark:border-slate-800 pl-2">
@@ -748,6 +833,16 @@ function QueryContent() {
                 <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin flex-shrink-0" />
               )}
             </button>
+
+            {messages.length > 0 && !isStreaming && (
+              <button
+                onClick={handleNewConversation}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 dark:border-slate-700 text-xs font-medium text-gray-500 dark:text-slate-500 hover:text-primary hover:border-primary/40 transition-all"
+              >
+                <span className="material-symbols-outlined text-[14px]">add_circle</span>
+                New conversation
+              </button>
+            )}
 
             {isStreaming && (
               <button

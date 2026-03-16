@@ -529,6 +529,60 @@ export interface ActivityResponse {
   activities: ActivityItem[];
 }
 
+// ===================== CONVERSATION TYPES =====================
+
+export interface TurnRequest {
+  session_id?: string;
+  message: string;
+  language?: string;
+  action_id?: string;
+}
+
+export interface ActionSuggestion {
+  id: string;
+  label: string;
+  icon: string;
+  description: string;
+}
+
+export interface TurnResponse {
+  session_id: string;
+  turn_number: number;
+  intent: string;
+  response: string;
+  suggestions: ActionSuggestion[];
+  needs_clarification: boolean;
+  verification_status?: VerificationStatus;
+  confidence?: ConfidenceLevel;
+  citations: CitationResult[];
+  processing_time_ms: number;
+  cached: boolean;
+}
+
+export interface SessionResponse {
+  session_id: string;
+  user_id: string;
+  turn_count: number;
+  status: string;
+  context: Record<string, unknown>;
+  intent_history: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SSEIntentEvent {
+  intent: string;
+  confidence: number;
+}
+
+export interface SSEClarificationEvent {
+  questions: string[];
+}
+
+export interface SSEActionSuggestionsEvent {
+  suggestions: ActionSuggestion[];
+}
+
 // ===================== API ERROR TYPES =====================
 
 export interface APIError {

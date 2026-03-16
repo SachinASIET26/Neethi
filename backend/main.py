@@ -33,7 +33,7 @@ except ImportError:
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.api.routes import admin, auth, cases, documents, query, resources, sections, translate, voice
+from backend.api.routes import admin, auth, cases, conversation, documents, document_analysis, query, resources, sections, translate, voice
 from backend.db.database import create_all_tables
 from backend.services.cache import ResponseCache
 
@@ -137,6 +137,8 @@ app.include_router(resources.router, prefix=f"{PREFIX}/resources", tags=["Legal 
 app.include_router(translate.router, prefix=f"{PREFIX}/translate", tags=["Translation"])
 app.include_router(voice.router,     prefix=f"{PREFIX}/voice",     tags=["Voice (TTS/STT)"])
 app.include_router(admin.router,     prefix=f"{PREFIX}/admin",     tags=["Admin"])
+app.include_router(conversation.router, prefix=f"{PREFIX}/conversation", tags=["Conversation"])
+app.include_router(document_analysis.router, prefix=f"{PREFIX}/documents", tags=["Document Analysis"])
 
 
 # ---------------------------------------------------------------------------
