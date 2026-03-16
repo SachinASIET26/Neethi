@@ -220,7 +220,9 @@ class LegalIngestionPipeline:
         self,
         act_code: str,
         pdf_path: Path,
-        json_path: Path,
+        json_path: Optional[Path] = None,
+        export_json_path: Optional[Path] = None,
+        dry_run: bool = False,
     ) -> IngestionReport:
         """Run all 10 ingestion steps for a single act.
 
@@ -235,15 +237,21 @@ class LegalIngestionPipeline:
         report = IngestionReport(act_code=act_code)
         start_time = time.monotonic()
 
-        logger.info("ingest_act START: act=%s pdf=%s json=%s", act_code, pdf_path.name, json_path.name)
+        pdf_name = pdf_path.name if pdf_path else "None"
+        json_name = json_path.name if json_path else "None"
+        logger.info("ingest_act START: act=%s pdf=%s json=%s", act_code, pdf_name, json_name)
 
         try:
             # ----------------------------------------------------------------
             # Step 1 — Load enrichment data from JSON
             # ----------------------------------------------------------------
-            logger.info("[Step 1] Loading JSON enrichment: act=%s", act_code)
-            enrichment_map: SectionEnrichmentMap = load_enrichment(json_path, act_code)
-            logger.info("[Step 1] Enrichment loaded: %d entries", len(enrichment_map))
+            enrichment_map: SectionEnrichmentMap = {}
+            if json_path and json_path.exists():
+                logger.info("[Step 1] Loading JSON enrichment: act=%s", act_code)
+                enrichment_map = load_enrichment(json_path, act_code)
+                logger.info("[Step 1] Enrichment loaded: %d entries", len(enrichment_map))
+            else:
+                logger.info("[Step 1] No JSON enrichment provided — skipping (old act dry-run)")
 
             # ----------------------------------------------------------------
             # Step 2 — Two-pass PDF extraction
@@ -272,6 +280,39 @@ class LegalIngestionPipeline:
             sections, chapters = parse_act(cleaned_text)
             report.total_sections_found = len(sections)
             logger.info("[Step 4] Found %d sections, %d chapters", len(sections), len(chapters))
+
+            # ── NEW: Dry-run export (exit before any DB operations) ──────────────────
+            if dry_run or export_json_path:
+                export_data = {
+                    "act_code": act_code,
+                    "act_name": act_code,           # caller can patch this if needed
+                    "total_sections": len(sections),
+                    "sections": [
+                        {
+                            "section_number": sec.section_number,
+                            "title": sec.section_title or "",
+                            "text": sec.raw_body_text.strip(),
+                            "chapter_number": sec.chapter_number or "",
+                            "chapter_title": "",    # not available at parse stage
+                        }
+                        for sec in sections
+                        if sec.raw_body_text and sec.raw_body_text.strip()
+                    ],
+                }
+                if export_json_path:
+                    export_json_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(export_json_path, "w", encoding="utf-8") as f:
+                        import json
+                        json.dump(export_data, f, ensure_ascii=False, indent=2)
+                    logger.info(
+                        "[dry_run] Exported %d sections to %s",
+                        len(export_data["sections"]),
+                        export_json_path,
+                    )
+                if dry_run:
+                    report.total_sections_found = len(sections)
+                    report.duration_seconds = time.monotonic() - start_time
+                    return report   # stop here — no DB write
 
             # ----------------------------------------------------------------
             # Step 5 — Validate each section

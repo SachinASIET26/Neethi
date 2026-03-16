@@ -40,6 +40,8 @@ class TransitionResult:
     old_act: str
     old_section: str
     old_section_title: Optional[str]
+    old_section_heading: Optional[str]
+    old_legal_text: Optional[str]
     new_act: Optional[str]
     new_section: Optional[str]
     new_section_title: Optional[str]
@@ -247,6 +249,8 @@ class TransitionRepository:
             old_act=row.old_act,
             old_section=row.old_section,
             old_section_title=row.old_section_title,
+            old_section_heading=row.old_section_heading,
+            old_legal_text=row.old_legal_text,
             new_act=row.new_act,
             new_section=row.new_section,
             new_section_title=row.new_section_title,

@@ -272,10 +272,10 @@ async def similar_cases(
                     case_type=f["payload"].get("case_type", "other"),
                     year=f["payload"].get("year"),
                     date=f["payload"].get("date", ""),
-                    citation=f["payload"].get("citation") or f["payload"].get("primary_citation", ""),
-                    legal_sections=f["payload"].get("legal_sections", [])[:8],
-                    summary=f["payload"].get("summary", "")[:500],
-                    key_holdings=f["payload"].get("key_holdings", [])[:3],
+                    citation=f["payload"].get("citation") or f["payload"].get("primary_citation", "") or "",
+                    legal_sections=(f["payload"].get("legal_sections") or [])[:8],
+                    summary=(f["payload"].get("summary") or "")[:500],
+                    key_holdings=(f["payload"].get("key_holdings") or [])[:3],
                     indian_kanoon_url=f["payload"].get("indian_kanoon_url", ""),
                     relevance_score=round(f["rrf_score"], 4),
                 )
@@ -294,10 +294,10 @@ async def similar_cases(
                     case_type=r.payload.get("case_type", "other"),
                     year=r.payload.get("year"),
                     date=r.payload.get("date", ""),
-                    citation=r.payload.get("citation") or r.payload.get("primary_citation", ""),
-                    legal_sections=r.payload.get("legal_sections", [])[:8],
-                    summary=r.payload.get("summary", "")[:500],
-                    key_holdings=r.payload.get("key_holdings", [])[:3],
+                    citation=r.payload.get("citation") or r.payload.get("primary_citation", "") or "",
+                    legal_sections=(r.payload.get("legal_sections") or [])[:8],
+                    summary=(r.payload.get("summary") or "")[:500],
+                    key_holdings=(r.payload.get("key_holdings") or [])[:3],
                     indian_kanoon_url=r.payload.get("indian_kanoon_url", ""),
                     relevance_score=round(r.score, 4),
                 )
@@ -305,6 +305,11 @@ async def similar_cases(
             ]
 
     except Exception as exc:
+        import traceback
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Similar cases search failed Exception: {exc}")
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=500,
             detail=f"Similar cases search failed: {exc}",

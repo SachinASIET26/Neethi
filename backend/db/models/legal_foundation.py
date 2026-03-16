@@ -318,6 +318,8 @@ class LawTransitionMapping(Base):
     old_act: Mapped[str] = mapped_column(String(20), nullable=False)
     old_section: Mapped[str] = mapped_column(String(20), nullable=False)
     old_section_title: Mapped[Optional[str]] = mapped_column(String(500))
+    old_section_heading: Mapped[Optional[str]] = mapped_column(String(500))
+    old_legal_text: Mapped[Optional[str]] = mapped_column(Text)
     new_act: Mapped[Optional[str]] = mapped_column(String(20))
     new_section: Mapped[Optional[str]] = mapped_column(String(20))
     new_section_title: Mapped[Optional[str]] = mapped_column(String(500))

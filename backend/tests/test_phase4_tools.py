@@ -235,6 +235,66 @@ def test_unknown_section_returns_not_found(normalization_tool):
     assert "Exception" not in result, "Result must not expose raw exception details."
 
 
+def test_statute_normalization_with_old_text(normalization_tool):
+    """Verify that _format_output includes OLD LAW TEXT when old_legal_text is present."""
+    from backend.db.repositories.transition_repository import TransitionResult
+    
+    mock_result = [
+        TransitionResult(
+            mapping_id=1,
+            old_act="IPC_1860",
+            old_section="302",
+            old_section_title="Punishment for murder",
+            old_section_heading="Punishment for murder",
+            old_legal_text="Whoever commits murder shall be punished with death...",
+            new_act="BNS_2023",
+            new_section="103",
+            new_section_title="Murder",
+            transition_type="direct",
+            confidence_score=1.0,
+            transition_note=None,
+            scope_change=None,
+            is_active=True,
+        )
+    ]
+    
+    with patch("backend.agents.tools.statute_normalization_tool._lookup_sync", return_value=mock_result):
+        result = normalization_tool.run({"old_act": "IPC", "old_section": "302"})
+        
+    assert "OLD LAW TEXT" in result, "OLD LAW TEXT block should be present"
+    assert "Whoever commits murder shall be punished with death..." in result
+    assert "Punishment for murder" in result
+
+
+def test_statute_normalization_missing_old_text_graceful(normalization_tool):
+    """Verify that _format_output handles missing old_legal_text gracefully."""
+    from backend.db.repositories.transition_repository import TransitionResult
+    
+    mock_result = [
+        TransitionResult(
+            mapping_id=1,
+            old_act="IPC_1860",
+            old_section="302",
+            old_section_title=None,
+            old_section_heading=None,
+            old_legal_text=None,
+            new_act="BNS_2023",
+            new_section="103",
+            new_section_title="Murder",
+            transition_type="direct",
+            confidence_score=1.0,
+            transition_note=None,
+            scope_change=None,
+            is_active=True,
+        )
+    ]
+    
+    with patch("backend.agents.tools.statute_normalization_tool._lookup_sync", return_value=mock_result):
+        result = normalization_tool.run({"old_act": "IPC", "old_section": "302"})
+        
+    assert "OLD LAW TEXT: not yet ingested" in result, "Should indicate data is not yet ingested"
+
+
 def test_act_alias_normalization():
     """'IPC' must be normalized to 'IPC_1860' before the DB lookup.
 

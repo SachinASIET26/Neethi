@@ -8,7 +8,7 @@ import type {
   SimilarCasesRequest, SimilarCasesResponse, TemplateListResponse,
   DraftRequest, DraftResponse, DraftUpdateRequest, ActListResponse, SectionDetail,
   NormalizeResponse, VerifyRequest, VerifyResponse, NearbyRequest, NearbyResponse,
-  EligibilityResponse, TranslateTextRequest, TranslateTextResponse,
+  TranslateTextRequest, TranslateTextResponse,
   TranslateQueryRequest, TranslateQueryResponse, HealthResponse,
   UserListResponse, UserDetailResponse, UserUpdateRequest, AdminStats, ActivityResponse,
 } from "@/types";
@@ -255,10 +255,7 @@ export const resourcesAPI = {
   findNearby: (data: NearbyRequest) =>
     apiClient.post<NearbyResponse>("/resources/nearby", data).then(r => r.data),
 
-  checkEligibility: (annualIncome: number, category = "general", state = "all") =>
-    apiClient.get<EligibilityResponse>("/resources/legal-aid/eligibility", {
-      params: { annual_income: annualIncome, category, state },
-    }).then(r => r.data),
+
 };
 
 // ===================== TRANSLATION =====================

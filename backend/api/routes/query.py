@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -288,27 +289,60 @@ async def ask_stream(
             return
 
         # Full pipeline — always receives the English query
-        try:
-            from backend.agents.crew_config import get_crew_for_role
-            from backend.agents.query_router import handle_query
+        from backend.agents.crew_config import get_crew_for_role
+        from backend.agents.query_router import handle_query
 
-            start = time.time()
-            yield _event("agent_start", {"agent": "ResponseFormatter", "message": "Formatting response..."})
-            response_text = await handle_query(
-                query=english_query,
-                user_role=current_user.role,
-                crew_factory=get_crew_for_role,
-            )
-            elapsed_ms = int((time.time() - start) * 1000)
-        except Exception as exc:
-            import traceback
+        start = time.time()
+        yield _event("agent_start", {"agent": "ResponseFormatter", "message": "Formatting response..."})
+
+        # Run the pipeline in a background task while sending SSE keepalive
+        # comments every 15 s so the proxy/browser never times out during
+        # the multi-agent pipeline (which can take 1-5 minutes).
+        _pipeline_done = asyncio.Event()
+        _pipeline_result: list[str] = []
+        _pipeline_error: list[Exception] = []
+
+        async def _run_pipeline() -> None:
+            try:
+                r = await handle_query(
+                    query=english_query,
+                    user_role=current_user.role,
+                    crew_factory=get_crew_for_role,
+                )
+                _pipeline_result.append(r)
+            except Exception as exc:  # noqa: BLE001
+                _pipeline_error.append(exc)
+            finally:
+                _pipeline_done.set()
+
+        pipeline_task = asyncio.create_task(_run_pipeline())
+
+        # Yield keepalive SSE comments while waiting for the pipeline.
+        # SSE comment lines (starting with ':') are ignored by EventSource
+        # clients but keep the TCP connection and proxy alive.
+        while not _pipeline_done.is_set():
+            try:
+                await asyncio.wait_for(
+                    asyncio.shield(_pipeline_done.wait()),
+                    timeout=15,
+                )
+            except asyncio.TimeoutError:
+                yield ": keepalive\n\n"
+
+        elapsed_ms = int((time.time() - start) * 1000)
+
+        if _pipeline_error:
+            exc = _pipeline_error[0]
+            import traceback as _tb
             logger.error(
                 "ask_stream pipeline error — role=%s query_prefix=%r\n%s",
-                current_user.role, english_query[:80], traceback.format_exc(),
+                current_user.role, english_query[:80], _tb.format_exc(),
             )
             yield _event("error", {"code": "PIPELINE_ERROR", "detail": str(exc)})
             yield "event: end\ndata: {}\n\n"
             return
+
+        response_text = _pipeline_result[0]
 
         await cache.set(english_query, current_user.role, response_text, tier="full")
 

@@ -60,9 +60,21 @@ _COLLISION_WARNINGS: dict[tuple[str, str], str] = {
         "CRITICAL: BNS 302 = Religious Offences (Blasphemy etc.). "
         "Use BNS 103 for Murder — a completely different offence."
     ),
+    ("IPC_1860", "420"): (
+        "CRITICAL: BNS 420 does not exist. "
+        "Use BNS 318(4) for Cheating."
+    ),
+    ("IPC_1860", "379"): (
+        "CRITICAL: BNS 379 does not exist. "
+        "Use BNS 303 for Theft."
+    ),
     ("CrPC_1973", "438"): (
         "CRITICAL: BNSS 438 = Revision Powers (not bail). "
         "Use BNSS 482 for Anticipatory Bail."
+    ),
+    ("CrPC_1973", "439"): (
+        "CRITICAL: BNSS 439 = Revision Powers (not bail). "
+        "Use BNSS 483 for Special powers of High Court/Sessions Court regarding bail."
     ),
 }
 
@@ -248,6 +260,8 @@ def _lookup_sync(act: str, section: str) -> List[TransitionResult]:
                     old_act=row.old_act,
                     old_section=row.old_section,
                     old_section_title=row.old_section_title,
+                    old_section_heading=row.old_section_heading,
+                    old_legal_text=row.old_legal_text,
                     new_act=row.new_act,
                     new_section=row.new_section,
                     new_section_title=row.new_section_title,
@@ -268,7 +282,11 @@ def _format_output(
     section: str,
     results: List[TransitionResult],
 ) -> str:
-    """Format the normalization results as a human-readable string for the agent."""
+    """Format normalization results as a string for the agent.
+
+    Now includes OLD LAW TEXT block when old_legal_text is populated,
+    enabling side-by-side comparison between old and new law.
+    """
     header = f"STATUTE NORMALIZATION: {act} s.{section}"
 
     if not results:
@@ -276,42 +294,50 @@ def _format_output(
             header,
             "Status: NOT_FOUND — no active mapping exists.",
             "Proceed with direct search using original reference if applicable.",
+            "",
+            "SAFETY NOTE: Do not assume section numbers carry over between acts.",
+            "IPC 302 ≠ BNS 302. Always normalize before searching.",
         ]
         return "\n".join(lines)
 
-    lines = [
-        header,
-        f"Status: FOUND — {len(results)} mapping(s)",
-        "",
-    ]
+    lines = [header, f"Status: FOUND — {len(results)} mapping(s)\n"]
 
-    for i, r in enumerate(results, start=1):
-        new_ref = f"{r.new_act} s.{r.new_section}" if r.new_act and r.new_section else "N/A"
-        title = f' "{r.new_section_title}"' if r.new_section_title else ""
-        lines.append(f"[{i}] {new_ref}{title}")
-        lines.append(f"    Type: {r.transition_type} | Confidence: {r.confidence_score:.2f}")
-        if r.transition_note:
-            lines.append(f"    Note: {r.transition_note}")
-        if r.scope_change:
-            lines.append(f"    Scope change: {r.scope_change}")
-
-        # Inject collision warning if applicable
-        collision = _COLLISION_WARNINGS.get((act, section))
-        if collision:
-            lines.append(f"    CRITICAL WARNING: {collision}")
-
-    lines.append("")
-
-    # Recommend which section(s) to use in Qdrant
-    if len(results) == 1:
-        r = results[0]
-        lines.append(f"Use {r.new_act} s.{r.new_section} in all Qdrant queries.")
-    else:
-        refs = ", ".join(
-            f"{r.new_act} s.{r.new_section}"
-            for r in results
-            if r.new_act and r.new_section
+    for i, r in enumerate(results, 1):
+        lines.append(
+            f"[{i}] {r.old_act} s.{r.old_section} "
+            f"→ {r.new_act} s.{r.new_section}"
         )
-        lines.append(f"Use all mapped sections in Qdrant queries: {refs}")
+        lines.append(f"    New title    : {r.new_section_title}")
+        lines.append(f"    Transition   : {r.transition_type}")
+
+        if r.scope_change and r.scope_change != "none":
+            lines.append(f"    Scope change : {r.scope_change}")
+
+        if r.transition_note:
+            lines.append(f"    Change note  : {r.transition_note}")
+
+        # ── OLD LAW TEXT BLOCK (new) ──────────────────────────────────
+        if r.old_legal_text and r.old_legal_text.strip():
+            heading = r.old_section_heading or f"{r.old_act} s.{r.old_section}"
+            lines.append(f"\n    OLD LAW TEXT — {heading}:")
+            # Cap at 800 chars to stay within agent context window budget
+            text = r.old_legal_text.strip()
+            if len(text) > 800:
+                text = text[:800] + "... [truncated — full text in DB]"
+            for line in text.splitlines():
+                lines.append(f"    {line}")
+        else:
+            lines.append(
+                f"\n    OLD LAW TEXT: not yet ingested "
+                f"(run populate_old_act_texts.py)"
+            )
+        # ── END OLD LAW TEXT BLOCK ────────────────────────────────────
+
+        # Collision warning (existing logic — do not remove)
+        key = (r.old_act, r.old_section)
+        if key in _COLLISION_WARNINGS:
+            lines.append(f"\n    ⚠  WARNING: {_COLLISION_WARNINGS[key]}")
+
+        lines.append("")
 
     return "\n".join(lines)

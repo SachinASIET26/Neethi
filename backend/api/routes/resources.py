@@ -139,20 +139,14 @@ def _parse_distance(dist_str: str) -> float | None:
 
 
 def _mock_response(request: NearbyRequest) -> NearbyResponse:
-    """Return a structured placeholder when SERP_API_KEY is not set."""
+    """Return an empty response when SERP_API_KEY is not set or API fails."""
     return NearbyResponse(
         resource_type=request.resource_type,
         location={"latitude": request.latitude, "longitude": request.longitude} if request.latitude else None,
-        results=[
-            ResourceResult(
-                name="SERP API not configured — configure SERP_API_KEY in .env",
-                address="See https://serpapi.com for API key",
-                services=["Real results available after SERP_API_KEY is set"],
-            )
-        ],
+        results=[],
         total_found=0,
         note=(
-            "This is a placeholder. Set SERP_API_KEY in your .env file to enable "
+            "Set SERP_API_KEY in your .env file to enable "
             "real location-based legal resource search."
         ),
     )

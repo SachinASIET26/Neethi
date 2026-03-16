@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: "Neethi AI — Indian Legal Intelligence",
   description:
     "Citation-verified, hallucination-free Indian legal AI. Powered by CrewAI with IRAC analysis, statute lookup, and document drafting for lawyers, citizens, and legal professionals.",
-  keywords: ["Indian law", "legal AI", "BNS", "BNSS", "IPC", "legal research", "lawyer"],
+  keywords: ["Indian law", "legal AI", "BNS", "BNSS", "BSA", "legal research", "lawyer"],
   authors: [{ name: "Neethi AI" }],
   openGraph: {
     title: "Neethi AI — Indian Legal Intelligence",

@@ -185,15 +185,15 @@ _SECTION_HEADING_LINE1_RE = re.compile(
     re.MULTILINE,
 )
 
-# Chapter heading: "CHAPTER I", "CHAPTER XIV", "CHAPTER 1" (BNSS uses Arabic)
+# Chapter heading: "CHAPTER I", "CHAPTER XIV", "CHAPTER 1" (BNSS uses Arabic), "PART I" (IEA)
 _CHAPTER_HEADING_RE = re.compile(
-    r"^CHAPTER\s+((?:[IVXLCDM]+|\d+))\s*$",
+    r"^(?:CHAPTER|PART)\s+((?:[IVXLCDM]+|\d+))\s*$",
     re.MULTILINE | re.IGNORECASE,
 )
 
 # Chapter title line: follows the chapter number line
 _CHAPTER_TITLE_RE = re.compile(
-    r"^CHAPTER\s+((?:[IVXLCDM]+|\d+))\s*\n\s*([A-Z][A-Z\s,\-\']+)\s*$",
+    r"^(?:CHAPTER|PART)\s+((?:[IVXLCDM]+|\d+))\s*\n\s*([A-Z][A-Z\s,\-\']+)\s*$",
     re.MULTILINE | re.IGNORECASE,
 )
 
@@ -350,9 +350,9 @@ def _assign_chapters_to_sections(
     # Build a list of (text_position_of_chapter_heading, chapter) pairs
     chapter_positions: List[Tuple[int, ParsedChapter]] = []
     for ch in chapters:
-        # Find the position of "CHAPTER {number}" in the text
+        # Find the position of "CHAPTER {number}" or "PART {number}" in the text
         pattern = re.compile(
-            r"CHAPTER\s+" + re.escape(ch.chapter_number) + r"\b",
+            r"(?:CHAPTER|PART)\s+" + re.escape(ch.chapter_number) + r"\b",
             re.IGNORECASE,
         )
         m = pattern.search(cleaned_text)
@@ -361,7 +361,7 @@ def _assign_chapters_to_sections(
         else:
             # Also try Arabic form in case the text has Arabic numbers
             pattern_arabic = re.compile(
-                r"CHAPTER\s+" + str(ch.chapter_number_int) + r"\b",
+                r"(?:CHAPTER|PART)\s+" + str(ch.chapter_number_int) + r"\b",
                 re.IGNORECASE,
             )
             m2 = pattern_arabic.search(cleaned_text)

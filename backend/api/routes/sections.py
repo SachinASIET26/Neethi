@@ -261,16 +261,33 @@ async def normalize_statute(
     mapping = mappings[0]
 
     warning = None
-    if normalised_act == "IPC_1860" and old_section == "302":
-        warning = (
-            "CRITICAL: IPC 302 → BNS 103. "
-            "BNS 302 is Religious Offences — NOT murder. Never conflate these."
-        )
-    elif normalised_act == "CrPC_1973" and old_section == "438":
-        warning = (
-            "CRITICAL: CrPC 438 (Anticipatory Bail) → BNSS 482. "
-            "BNSS 438 is Revision Powers — NOT anticipatory bail."
-        )
+    if normalised_act == "IPC_1860":
+        if old_section == "302":
+            warning = (
+                "CRITICAL: IPC 302 → BNS 103. "
+                "BNS 302 is Religious Offences — NOT murder. Never conflate these."
+            )
+        elif old_section == "420":
+            warning = (
+                "CRITICAL: IPC 420 → BNS 318(4). "
+                "BNS 420 does not exist."
+            )
+        elif old_section == "379":
+            warning = (
+                "CRITICAL: IPC 379 → BNS 303. "
+                "BNS 379 does not exist."
+            )
+    elif normalised_act == "CrPC_1973":
+        if old_section == "438":
+            warning = (
+                "CRITICAL: CrPC 438 (Anticipatory Bail) → BNSS 482. "
+                "BNSS 438 is Revision Powers — NOT anticipatory bail."
+            )
+        elif old_section == "439":
+            warning = (
+                "CRITICAL: CrPC 439 (Special bail powers) → BNSS 483. "
+                "BNSS 439 is Revision Powers — NOT special bail powers."
+            )
 
     eff_date = "2024-07-01"
 
@@ -300,6 +317,7 @@ async def batch_verify(
     _DANGER_MAP = {
         ("BNS_2023", "302"): "BNS 302 is Religious Offences — NOT murder. Murder is BNS 103.",
         ("BNSS_2023", "438"): "BNSS 438 is Revision Powers — NOT anticipatory bail. Use BNSS 482.",
+        ("BNSS_2023", "439"): "BNSS 439 is Revision Powers — NOT special bail powers. Use BNSS 483.",
     }
 
     import unicodedata

@@ -108,13 +108,13 @@ _TYPE_MAP: Dict[str, str] = {
 # Examples: '376(1)' → '376', '376(2)' → '376', '53A' → '53A' (unchanged)
 # Rationale: BNS 64 has replaces_ipc=['376(1)'] and BNS 65 has ['376(2)'].
 # Both refer to sub-sections of the same IPC section 376. Storing old_section as
-# '376(1)' breaks lookup_transition('IPC_1860', '376') — normalise to the base
-# section number so split detection and DB lookups work correctly.
-_SUBSEC_SUFFIX_RE = re.compile(r"\(\d+\)$")
+# '376(1)' breaks lookup_transition('IPC_1860', '376') —# normalise to the base section number so split detection and DB lookups work correctly.
+# Applied iteratively to handle deep nesting like "2(1)(a)" -> "2"
+_SUBSEC_SUFFIX_RE = re.compile(r"(?:\([a-zA-Z0-9]+\))+$")
 
 
 def _normalize_old_section(s: str) -> str:
-    """Strip sub-section parenthetical suffix: '376(1)' -> '376', '53A' -> '53A'."""
+    """Strip all parenthetical sub-section suffixes: '376(1)' -> '376', '2(1)(a)' -> '2'."""
     return _SUBSEC_SUFFIX_RE.sub("", s).strip()
 
 
@@ -136,6 +136,7 @@ def _normalize_old_section(s: str) -> str:
 _BLOCKED_OLD_SECTIONS: Dict[str, Dict[str, List[str]]] = {
     "BNS_2023": {
         "95": ["302"],   # BNS 95 is child-offence abetment, NOT a Murder replacement
+        "189": ["144"],  # IPC 144 is preventive detention, separate domain from BNS 189 unlawful assembly
     },
 }
 
@@ -279,6 +280,11 @@ def load_enrichment(json_path: Path, act_code: str) -> SectionEnrichmentMap:
             # Type mapping
             raw_type = (sec.get("type") or "").lower().strip()
             transition_type_hint = _TYPE_MAP.get(raw_type, "equivalent")
+
+            # FIX 3 — Hardcoded corrections for specific JSON errors
+            if act_code == "BNSS_2023" and section_num == "172":
+                transition_type_hint = "new"
+                replaces_old_sections = []
 
             enrichment_map[section_num] = SectionEnrichment(
                 chapter_number=chapter_number,

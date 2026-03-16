@@ -114,6 +114,13 @@ backend/db/migrations/versions/__pycache__/
 .ipynb_checkpoints/
 
 # ---------------------------------------------------------------------------
+# Generated / Source Data — Large files not for version control
+# ---------------------------------------------------------------------------
+data/source_pdfs/
+data/output/
+package-lock.json
+
+# ---------------------------------------------------------------------------
 # Stitch HTML prototypes — keep sources, exclude any build artifacts
 # ---------------------------------------------------------------------------
 stitch/download.ps1

@@ -17,7 +17,10 @@ import toast from "react-hot-toast";
 /* ─── Sub-components ─────────────────────────────────────────── */
 
 function RelevanceBar({ score }: { score: number }) {
-  const pct = Math.round(score * 100);
+  // If score is tiny (RRF score usually maxes around ~0.033), multiply by 30 so 0.033 -> ~0.99
+  const normalizedScore = score < 0.1 ? score * 30 : score;
+  const pct = Math.min(Math.round(normalizedScore * 100), 99);
+
   const color = pct >= 75 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-500" : "bg-gray-400 dark:bg-slate-500";
   return (
     <div className="flex items-center gap-2">
@@ -612,13 +615,12 @@ export default function CasesPage() {
             <form onSubmit={handleSimilarSearch} className="bg-white dark:bg-[#0f172a] rounded-xl border border-gray-200 dark:border-slate-800 p-4 space-y-4 shadow-sm">
               <div className="flex gap-2 sm:gap-3">
                 <div className="flex-1 relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500 text-[18px]">law</span>
                   <input
                     type="text"
                     placeholder="Describe a case or enter a SC judgement citation to find similar cases in Indian Kanoon…"
                     value={simQuery}
                     onChange={(e) => setSimQuery(e.target.value)}
-                    className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg pl-9 pr-4 py-2.5 text-sm text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:border-primary/60 transition-colors"
+                    className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:border-primary/60 transition-colors"
                     required
                   />
                 </div>

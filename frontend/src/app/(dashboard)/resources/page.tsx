@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { resourcesAPI } from "@/lib/api";
-import type { ResourceResult, EligibilityResponse } from "@/types";
+import type { ResourceResult } from "@/types";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 
@@ -16,13 +16,7 @@ const FILTERS: Array<{ type: ResourceType; label: string; icon: string }> = [
   { type: "lawyer", label: "Lawyers", icon: "person" },
 ];
 
-const CATEGORIES = [
-  { value: "general", label: "General" },
-  { value: "sc", label: "SC" },
-  { value: "st", label: "ST" },
-  { value: "woman", label: "Women/Children" },
-  { value: "disabled", label: "Disabled" },
-];
+
 
 const STATUS_COLORS: Record<string, string> = {
   legal_aid:       "text-blue-500",
@@ -148,16 +142,11 @@ function ResourceCard({ resource, type }: { resource: ResourceResult; type: Reso
 export default function ResourcesPage() {
   const [activeFilter, setActiveFilter] = useState<ResourceType>("legal_aid");
   const [resources, setResources] = useState<ResourceResult[]>([]);
-  const [eligibility, setEligibility] = useState<EligibilityResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [eligLoading, setEligLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
   const [city, setCity] = useState("");
   const [state, setState] = useState("all");
-  const [annualIncome, setAnnualIncome] = useState("");
-  const [category, setCategory] = useState("general");
-  const [eligState, setEligState] = useState("all");
 
   const handleSearch = async () => {
     if (!city.trim()) { toast.error("Please enter a city name."); return; }
@@ -175,18 +164,7 @@ export default function ResourcesPage() {
     }
   };
 
-  const handleEligibilityCheck = async () => {
-    if (!annualIncome || isNaN(Number(annualIncome))) { toast.error("Please enter a valid annual income."); return; }
-    setEligLoading(true);
-    try {
-      const data = await resourcesAPI.checkEligibility(Number(annualIncome), category, eligState);
-      setEligibility(data);
-    } catch {
-      toast.error("Eligibility check failed. Please try again.");
-    } finally {
-      setEligLoading(false);
-    }
-  };
+
 
   const inputCls = "w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-800 dark:text-slate-100 text-sm placeholder-gray-400 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors";
 
@@ -202,74 +180,7 @@ export default function ResourcesPage() {
           </p>
         </div>
 
-        {/* Eligibility Checker */}
-        <div className="rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] overflow-hidden shadow-sm">
-          <div className="px-5 py-4 bg-gradient-to-r from-primary/10 to-transparent border-b border-gray-100 dark:border-slate-800 flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-[20px]">shield</span>
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Free Legal Aid Eligibility Checker</h2>
-          </div>
-          <div className="p-4 sm:p-5">
-            <p className="text-xs text-gray-500 dark:text-slate-500 mb-4">
-              Check your eligibility for free legal aid under the Legal Services Authorities Act, 1987.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500 dark:text-slate-400">Annual Family Income (₹)</label>
-                <input type="number" value={annualIncome} onChange={(e) => setAnnualIncome(e.target.value)} placeholder="e.g. 150000" className={inputCls} />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500 dark:text-slate-400">Category</label>
-                <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls + " appearance-none"}>
-                  {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500 dark:text-slate-400">State (optional)</label>
-                <input type="text" value={eligState} onChange={(e) => setEligState(e.target.value)} placeholder="e.g. MH, DL, TN" className={inputCls} />
-              </div>
-              <div className="flex items-end">
-                <button onClick={handleEligibilityCheck} disabled={eligLoading} className="w-full h-9 flex items-center justify-center gap-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-amber-600 transition-all disabled:opacity-50">
-                  {eligLoading
-                    ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    : <><span className="material-symbols-outlined text-[16px]">check_circle</span>Check</>}
-                </button>
-              </div>
-            </div>
 
-            {eligibility && (
-              <div className={cn("mt-4 p-4 rounded-xl border animate-fade-in", eligibility.eligible ? "border-emerald-400/20 bg-emerald-50 dark:bg-emerald-400/5" : "border-red-400/20 bg-red-50 dark:bg-red-400/5")}>
-                <div className="flex items-start gap-3">
-                  <span className={cn("material-symbols-outlined text-[24px] flex-shrink-0", eligibility.eligible ? "text-emerald-500 dark:text-emerald-400" : "text-red-500 dark:text-red-400")}>
-                    {eligibility.eligible ? "check_circle" : "cancel"}
-                  </span>
-                  <div className="flex-1">
-                    <p className={cn("text-sm font-bold", eligibility.eligible ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400")}>
-                      {eligibility.eligible ? "You are eligible for free legal aid" : "Not currently eligible"}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{eligibility.basis}</p>
-                    {eligibility.eligible && (
-                      <div className="mt-3 space-y-1.5">
-                        <p className="text-xs font-medium text-gray-700 dark:text-slate-300">Your entitlements:</p>
-                        {eligibility.entitlements.map((e) => (
-                          <div key={e} className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
-                            <span className="material-symbols-outlined text-emerald-500 dark:text-emerald-400 text-[14px]">check</span>
-                            {e}
-                          </div>
-                        ))}
-                        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-800">
-                          <p className="text-xs text-gray-500 dark:text-slate-500">
-                            Contact: <span className="text-gray-700 dark:text-slate-300">{eligibility.contact.authority}</span> ·
-                            Helpline: <a href={`tel:${eligibility.contact.helpline}`} className="text-primary">{eligibility.contact.helpline}</a>
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
 
         {/* Resource Search */}
         <div className="rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] overflow-hidden shadow-sm">
