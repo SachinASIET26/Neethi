@@ -583,6 +583,33 @@ export interface SSEActionSuggestionsEvent {
   suggestions: ActionSuggestion[];
 }
 
+// ===================== DOCUMENT ANALYSIS TYPES =====================
+
+// PageIndex returns relevant_contents as an array of arrays.
+// Each inner array contains one or more content blocks for that excerpt.
+export interface PageIndexContentBlock {
+  section_title: string;
+  physical_index: string;  // e.g. "<physical_index_1>" — a label, not a page number
+  relevant_content: string;
+}
+
+export interface PageIndexNode {
+  id: string;              // e.g. "0000", "0001"
+  title: string;
+  metadata: string[];
+  relevant_contents: PageIndexContentBlock[][];  // array of arrays
+}
+
+export interface DocumentAnalysisResponse {
+  doc_id: string;
+  query: string;
+  retrieved_nodes: PageIndexNode[];
+  synthesized_answer: string;
+  summary?: string;          // legacy — prefer synthesized_answer
+  filename: string;
+  processing_time_ms: number;
+}
+
 // ===================== API ERROR TYPES =====================
 
 export interface APIError {

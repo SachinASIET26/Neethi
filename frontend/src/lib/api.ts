@@ -11,7 +11,7 @@ import type {
   TranslateTextRequest, TranslateTextResponse,
   TranslateQueryRequest, TranslateQueryResponse, HealthResponse,
   UserListResponse, UserDetailResponse, UserUpdateRequest, AdminStats, ActivityResponse,
-  TurnRequest, TurnResponse, SessionResponse,
+  TurnRequest, TurnResponse, SessionResponse, DocumentAnalysisResponse,
 } from "@/types";
 
 // Always use relative path — Next.js proxies /api/v1/* → backend (localhost:8000 or BACKEND_URL).
@@ -271,6 +271,78 @@ export function createTurnStream(
   };
 }
 
+// ===================== DOCUMENT ANALYSIS STREAMING =====================
+
+/**
+ * Stream document analysis via PageIndex.
+ * Emits SSE events: status | complete | error | end
+ */
+export function createDocumentAnalysisStream(
+  file: File,
+  query: string,
+  onEvent: (event: string, payload: unknown) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  const token = Cookies.get("neethi_token");
+  let aborted = false;
+  const controller = new AbortController();
+
+  const form = new FormData();
+  form.append("file", file, file.name);
+  form.append("query", query);
+
+  fetch(`${BASE_URL}/documents/analyze/stream`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token ?? ""}`,
+      Accept: "text/event-stream",
+    },
+    body: form,
+    signal: controller.signal,
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        const text = await response.text().catch(() => `HTTP ${response.status}`);
+        throw new Error(text || `HTTP ${response.status}`);
+      }
+      const reader = response.body?.getReader();
+      if (!reader) return;
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (!aborted) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split("\n\n");
+        buffer = chunks.pop() ?? "";
+
+        for (const chunk of chunks) {
+          if (!chunk.trim()) continue;
+          let eventType = "message";
+          let eventData = "";
+          for (const line of chunk.split("\n")) {
+            if (line.startsWith("event: ")) eventType = line.slice(7).trim();
+            else if (line.startsWith("data: ")) eventData = line.slice(6).trim();
+          }
+          if (eventData) {
+            try { onEvent(eventType, JSON.parse(eventData)); }
+            catch { onEvent(eventType, eventData); }
+          }
+        }
+      }
+    })
+    .catch((err) => {
+      if (!aborted && onError) {
+        onError(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+
+  return () => { aborted = true; controller.abort(); };
+}
+
 // ===================== CASES =====================
 
 export const casesAPI = {
@@ -311,6 +383,7 @@ export const documentsAPI = {
     });
     return response.data;
   },
+
 };
 
 // ===================== SECTIONS =====================

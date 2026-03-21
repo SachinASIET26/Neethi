@@ -110,6 +110,7 @@ redis[asyncio]==5.2.1
 # HTTP & External APIs
 # ---------------------------------------------------------------------------
 httpx==0.28.0                    # Async HTTP client (also FastAPI TestClient)
+pageindex>=0.2.6                 # Vectify PageIndex SDK — vectorless document RAG
 
 # ---------------------------------------------------------------------------
 # Configuration & Environment
