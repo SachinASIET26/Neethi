@@ -545,13 +545,41 @@ export interface ActionSuggestion {
   description: string;
 }
 
+export interface ClarifyingQuestion {
+  id: string;
+  text: string;
+  options?: string[] | null;  // null = free text input
+}
+
+export interface FormulatedQuery {
+  legal_query: string;
+  domain: string;
+  sub_domains: string[];
+  summary: string;
+}
+
+export interface RetrievedSection {
+  act_code: string;
+  section_number: string;
+  section_title: string;
+  reason_applicable: string;
+  verification_status: string;
+  relevance: string;
+}
+
+export type ConversationStage = "intake" | "clarifying" | "confirming" | "retrieving" | "responding" | "follow_up";
+
 export interface TurnResponse {
   session_id: string;
   turn_number: number;
+  stage: ConversationStage;
   intent: string;
   response: string;
   suggestions: ActionSuggestion[];
   needs_clarification: boolean;
+  clarifying_questions?: ClarifyingQuestion[];
+  formulated_query?: FormulatedQuery;
+  retrieved_sections?: RetrievedSection[];
   verification_status?: VerificationStatus;
   confidence?: ConfidenceLevel;
   citations: CitationResult[];
@@ -564,6 +592,7 @@ export interface SessionResponse {
   user_id: string;
   turn_count: number;
   status: string;
+  stage: ConversationStage;
   context: Record<string, unknown>;
   intent_history: string[];
   created_at: string;
@@ -575,8 +604,18 @@ export interface SSEIntentEvent {
   confidence: number;
 }
 
+export interface SSEStageEvent {
+  stage: ConversationStage;
+}
+
 export interface SSEClarificationEvent {
-  questions: string[];
+  questions: ClarifyingQuestion[];
+}
+
+export interface SSEFormulatedQueryEvent extends FormulatedQuery {}
+
+export interface SSERetrievedSectionsEvent {
+  sections: RetrievedSection[];
 }
 
 export interface SSEActionSuggestionsEvent {

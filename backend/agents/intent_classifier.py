@@ -74,14 +74,14 @@ INTENTS:
 - followup_action: User requesting a specific action (like drafting, analysis, lookup)
 - new_question: Completely unrelated new question (different from current session topic)
 - greeting: Hello, thanks, goodbye, or pleasantries
-- section_lookup: Direct reference to a legal section (e.g., "BNS 103", "Section 420 IPC")
+- section_lookup: User is asking to read or explain a SPECIFIC numbered section (e.g., "What does BNS 103 say?", "Show me Section 420 IPC", "Read Section 302"). The user must reference a concrete section NUMBER — just mentioning an act name (e.g., "BNS 2023", "IPC") does NOT qualify.
 
 RULES:
-1. If the user mentions a specific section/act directly, classify as section_lookup
+1. section_lookup requires a SPECIFIC SECTION NUMBER reference (e.g., "section 103", "s.420"). Mentioning an act name with a year (e.g., "BNS 2023", "IPC 1860") is NOT section_lookup — it is new_scenario. Questions like "What is the punishment for murder under BNS?" are new_scenario, not section_lookup.
 2. If the conversation context has pending questions and the user's message answers them, classify as clarification_answer
 3. For new_scenario, detect emotional tone (distressed, urgent, neutral, formal)
 4. Extract legal entities: act names, section numbers, parties, locations, dates
-5. Set needs_clarification=true and provide clarifying_questions when the scenario is incomplete
+5. Set needs_clarification=true and provide clarifying_questions when the scenario is vague or lacks specific details needed for a precise legal answer. For clear, specific questions (e.g., "What is the punishment for murder under BNS 2023?"), set needs_clarification=false.
 6. Suggest appropriate actions based on user role
 
 ROLE-SPECIFIC ACTIONS:
@@ -169,13 +169,19 @@ def _fallback_classify(message: str, user_role: str) -> IntentResult:
     if msg_lower in greetings or any(msg_lower.startswith(g) for g in greetings):
         return IntentResult(intent="greeting", confidence=0.8)
 
-    # Section lookup detection
+    # Section lookup detection — must reference a specific section number,
+    # NOT a year (e.g., "BNS 103" is a section, "BNS 2023" is a year)
     section_pattern = re.compile(
-        r"(BNS|BNSS|BSA|IPC|CrPC|IEA|section|sec\.?)\s*\.?\s*(\d{1,4}[A-Za-z]?)",
+        r"(?:section|sec\.?)\s*\.?\s*(\d{1,4}[A-Za-z]?)"
+        r"|(?:BNS|BNSS|BSA|IPC|CrPC|IEA)\s*\.?\s*(\d{1,3}[A-Za-z]?)\b",
         re.IGNORECASE,
     )
-    if section_pattern.search(message):
-        return IntentResult(intent="section_lookup", confidence=0.7)
+    match = section_pattern.search(message)
+    if match:
+        # Ensure we matched an actual section number, not a 4-digit year
+        num = match.group(1) or match.group(2)
+        if num and not re.match(r"^(19|20)\d{2}$", num):
+            return IntentResult(intent="section_lookup", confidence=0.7)
 
     # Default: new scenario
     role_actions = {

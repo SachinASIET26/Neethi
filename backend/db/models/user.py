@@ -218,6 +218,14 @@ class ConversationSession(Base):
     # active | resolved | handed_off
     status: Mapped[str] = mapped_column(String(20), default="active")
 
+    # Staged pipeline state
+    # intake | clarifying | confirming | retrieving | responding | follow_up
+    stage: Mapped[Optional[str]] = mapped_column(String(20), default="intake")
+    formulated_query: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    classified_domain: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    retrieved_sections_cache: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    clarification_round: Mapped[int] = mapped_column(Integer, default=0)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

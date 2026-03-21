@@ -136,21 +136,6 @@ export default function Header() {
           </span>
         </button>
 
-        {/* Notifications */}
-        <button className="relative p-2 rounded-lg text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white transition-colors">
-          <span className="material-symbols-outlined text-[20px]">notifications</span>
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-[#020617]" />
-        </button>
-
-        {/* New Query */}
-        <Link
-          href="/query"
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-amber-600 transition-colors"
-        >
-          <span className="material-symbols-outlined text-[16px]">add</span>
-          {t.newQuery}
-        </Link>
-
         {/* User Profile */}
         <div className="relative">
           <button

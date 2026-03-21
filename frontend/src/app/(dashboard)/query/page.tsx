@@ -13,6 +13,8 @@ import type {
   QueryResponse, CitationResult, ActionSuggestion,
   SSEAgentEvent, SSETokenEvent, SSECompleteEvent,
   SSEIntentEvent, SSEClarificationEvent, SSEActionSuggestionsEvent,
+  ClarifyingQuestion, FormulatedQuery, RetrievedSection,
+  ConversationStage,
 } from "@/types";
 import toast from "react-hot-toast";
 
@@ -27,7 +29,10 @@ interface Message {
   progress?: number;
   suggestions?: ActionSuggestion[];
   needsClarification?: boolean;
-  clarificationQuestions?: string[];
+  clarificationQuestions?: ClarifyingQuestion[];
+  formulatedQuery?: FormulatedQuery;
+  retrievedSections?: RetrievedSection[];
+  stage?: ConversationStage;
   intent?: string;
 }
 
@@ -57,6 +62,195 @@ function CitationTag({ citation }: { citation: CitationResult }) {
       </span>
       {citation.act_code.split("_")[0]} {citation.section_number}
     </span>
+  );
+}
+
+// ── Clarification Questions Card ──────────────────────────────────────
+function ClarificationCard({
+  questions,
+  onAnswer,
+  disabled,
+}: {
+  questions: ClarifyingQuestion[];
+  onAnswer: (answer: string) => void;
+  disabled: boolean;
+}) {
+  const [freeTextAnswers, setFreeTextAnswers] = useState<Record<string, string>>({});
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+
+  const handleOptionClick = (qId: string, option: string) => {
+    setSelectedOptions((prev) => ({ ...prev, [qId]: option }));
+  };
+
+  const handleSubmitAnswers = () => {
+    const parts: string[] = [];
+    for (const q of questions) {
+      const selected = selectedOptions[q.id];
+      const freeText = freeTextAnswers[q.id];
+      if (selected) {
+        parts.push(`${q.text} — ${selected}`);
+      } else if (freeText?.trim()) {
+        parts.push(`${q.text} — ${freeText.trim()}`);
+      }
+    }
+    if (parts.length > 0) {
+      onAnswer(parts.join(". "));
+    }
+  };
+
+  const hasAnyAnswer = questions.some(
+    (q) => selectedOptions[q.id] || freeTextAnswers[q.id]?.trim()
+  );
+
+  return (
+    <div className="space-y-4 mt-3">
+      {questions.map((q) => (
+        <div key={q.id} className="space-y-2">
+          <p className="text-sm text-gray-700 dark:text-slate-300 font-medium">{q.text}</p>
+          {q.options ? (
+            <div className="flex flex-wrap gap-2">
+              {q.options.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => handleOptionClick(q.id, opt)}
+                  disabled={disabled}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg border text-xs font-medium transition-all",
+                    selectedOptions[q.id] === opt
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-400 hover:border-primary/40 hover:text-primary",
+                    disabled && "opacity-40 pointer-events-none"
+                  )}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <input
+              type="text"
+              value={freeTextAnswers[q.id] || ""}
+              onChange={(e) =>
+                setFreeTextAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
+              }
+              disabled={disabled}
+              placeholder="Type your answer..."
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 text-sm text-gray-800 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 disabled:opacity-40"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && hasAnyAnswer) handleSubmitAnswers();
+              }}
+            />
+          )}
+        </div>
+      ))}
+      <button
+        onClick={handleSubmitAnswers}
+        disabled={disabled || !hasAnyAnswer}
+        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-amber-600 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+      >
+        <span className="material-symbols-outlined text-[16px]">send</span>
+        Submit answers
+      </button>
+    </div>
+  );
+}
+
+// ── Retrieved Sections Card ───────────────────────────────────────────
+function RetrievedSectionsCard({
+  sections,
+}: {
+  sections: RetrievedSection[];
+}) {
+  return (
+    <div className="space-y-2 mt-3">
+      {sections.map((s, i) => (
+        <div
+          key={`${s.act_code}-${s.section_number}-${i}`}
+          className="flex items-start gap-3 p-3 rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/30"
+        >
+          <span
+            className={cn(
+              "material-symbols-outlined text-[18px] mt-0.5 flex-shrink-0",
+              s.verification_status === "VERIFIED"
+                ? "text-emerald-500"
+                : "text-amber-500"
+            )}
+          >
+            {s.verification_status === "VERIFIED" ? "verified" : "warning"}
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              {s.act_code.replace(/_/g, " ")} Section {s.section_number}
+              {s.section_title && (
+                <span className="font-normal text-gray-500 dark:text-slate-400">
+                  {" — "}{s.section_title}
+                </span>
+              )}
+            </p>
+            {s.reason_applicable && (
+              <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                {s.reason_applicable}
+              </p>
+            )}
+          </div>
+          <span
+            className={cn(
+              "text-[10px] px-2 py-0.5 rounded border font-medium flex-shrink-0",
+              s.relevance === "RELEVANT"
+                ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-400/10 border-emerald-200 dark:border-emerald-400/20"
+                : "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-400/10 border-amber-200 dark:border-amber-400/20"
+            )}
+          >
+            {s.relevance}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Confirmation Card ─────────────────────────────────────────────────
+function ConfirmationCard({
+  formulatedQuery,
+}: {
+  formulatedQuery: FormulatedQuery;
+}) {
+  const domainLabels: Record<string, string> = {
+    criminal: "Criminal Law",
+    civil: "Civil Law",
+    property: "Property / Tenancy",
+    family: "Family Law",
+    corporate: "Corporate / Commercial",
+    constitutional: "Constitutional Law",
+    labour: "Labour / Employment",
+    consumer: "Consumer Protection",
+    environmental: "Environmental Law",
+  };
+
+  return (
+    <div className="mt-3 p-4 rounded-xl border border-primary/20 bg-primary/5 dark:bg-primary/5 space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="material-symbols-outlined text-primary text-[18px]">description</span>
+        <span className="text-xs font-bold uppercase tracking-wider text-primary">Your Query</span>
+      </div>
+      <p className="text-sm text-gray-800 dark:text-slate-200 leading-relaxed">
+        {formulatedQuery.summary}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-medium">
+          <span className="material-symbols-outlined text-[12px]">folder</span>
+          {domainLabels[formulatedQuery.domain] || formulatedQuery.domain}
+        </span>
+        {formulatedQuery.sub_domains.map((sd) => (
+          <span
+            key={sd}
+            className="px-2.5 py-1 rounded-full border border-gray-200 dark:border-slate-700 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 text-xs font-medium"
+          >
+            {sd}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -92,7 +286,6 @@ function QueryContent() {
   const latestContentRef = useRef<string>("");
   const preRecordTextRef = useRef<string>("");
 
-  // Keep refs in sync with state so streaming callbacks always read fresh values
   useEffect(() => { voiceOverEnabledRef.current = voiceOverEnabled; }, [voiceOverEnabled]);
 
   const scrollToBottom = useCallback(() => {
@@ -145,6 +338,11 @@ function QueryContent() {
       setMessages((prev) =>
         prev.map((m) => m.id === assistantId ? { ...m, intent: p.intent } : m)
       );
+    } else if (event === "stage") {
+      const p = payload as { stage: ConversationStage };
+      setMessages((prev) =>
+        prev.map((m) => m.id === assistantId ? { ...m, stage: p.stage } : m)
+      );
     } else if (event === "clarification") {
       const p = payload as SSEClarificationEvent;
       setMessages((prev) =>
@@ -152,6 +350,20 @@ function QueryContent() {
           m.id === assistantId
             ? { ...m, needsClarification: true, clarificationQuestions: p.questions }
             : m
+        )
+      );
+    } else if (event === "formulated_query") {
+      const p = payload as FormulatedQuery;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId ? { ...m, formulatedQuery: p, stage: "confirming" } : m
+        )
+      );
+    } else if (event === "retrieved_sections") {
+      const p = payload as { sections: RetrievedSection[] };
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId ? { ...m, retrievedSections: p.sections, stage: "retrieving" } : m
         )
       );
     } else if (event === "action_suggestions") {
@@ -177,9 +389,12 @@ function QueryContent() {
         prev.map((m) => m.id === assistantId ? { ...m, content: m.content + p.text } : m)
       );
     } else if (event === "complete") {
-      const p = payload as SSECompleteEvent & { session_id?: string; needs_clarification?: boolean };
+      const p = payload as SSECompleteEvent & {
+        session_id?: string;
+        needs_clarification?: boolean;
+        stage?: ConversationStage;
+      };
 
-      // Persist session ID from response
       if (p.session_id) {
         setSessionId(p.session_id);
         localStorage.setItem("neethi-session-id", p.session_id);
@@ -188,13 +403,20 @@ function QueryContent() {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantId
-            ? { ...m, isStreaming: false, metadata: p, progress: 100, needsClarification: p.needs_clarification }
+            ? {
+                ...m,
+                isStreaming: false,
+                metadata: p,
+                progress: 100,
+                needsClarification: p.needs_clarification,
+                stage: p.stage || m.stage,
+              }
             : m
         )
       );
       setIsStreaming(false);
 
-      // Persist to localStorage for history preview
+      // Persist to localStorage
       try {
         const stored = JSON.parse(localStorage.getItem("neethi-chat-history") || "[]") as Array<{
           query: string; response: string; timestamp: string;
@@ -212,7 +434,7 @@ function QueryContent() {
 
       let ttsContent = latestContentRef.current;
 
-      // Auto-translate response if a non-English language is selected
+      // Auto-translate if non-English
       if (selectedLanguage !== "en") {
         setMessages((prev) =>
           prev.map((m) =>
@@ -243,7 +465,7 @@ function QueryContent() {
         }
       }
 
-      // Auto-play TTS if voiceover toggle is on
+      // Auto-play TTS
       if (voiceOverEnabledRef.current && ttsContent) {
         void (async () => {
           const langCode = SARVAM_LANG_MAP[selectedLanguage] || "en-IN";
@@ -260,7 +482,7 @@ function QueryContent() {
             audio.onerror = () => { setIsPlaying(false); URL.revokeObjectURL(url); audioRef.current = null; };
             await audio.play();
           } catch {
-            // auto-play TTS failure is non-fatal
+            // non-fatal
           } finally {
             setIsTTSLoading(false);
           }
@@ -273,7 +495,7 @@ function QueryContent() {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantId
-            ? { ...m, isStreaming: false, content: `⚠️ **Pipeline error:** ${errMsg}` }
+            ? { ...m, isStreaming: false, content: `**Pipeline error:** ${errMsg}` }
             : m
         )
       );
@@ -301,7 +523,6 @@ function QueryContent() {
     setInput("");
     setIsStreaming(true);
 
-    // Use conversation turn stream (new conversational path)
     const stop = createTurnStream(
       {
         session_id: sessionId || undefined,
@@ -312,7 +533,7 @@ function QueryContent() {
         _handleStreamEvent(event, payload, assistantId, originalQuery);
       },
       (_err) => {
-        // Fallback to old query stream if conversation endpoint unavailable
+        // Fallback to old query stream
         const fallbackStop = createQueryStream(
           { query: originalQuery, language: selectedLanguage, include_precedents: includePrecedents },
           async (event, payload) => {
@@ -381,7 +602,6 @@ function QueryContent() {
   }, []);
 
   const handleSpeak = useCallback(async (content: string) => {
-    // If already playing, stop it (toggle off)
     if (isPlaying) { stopAudio(); return; }
 
     const langCode = SARVAM_LANG_MAP[selectedLanguage] || "en-IN";
@@ -408,7 +628,6 @@ function QueryContent() {
       };
       await audio.play();
     } catch {
-      // Fall back to browser TTS
       if (window.speechSynthesis) {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(cleanText.slice(0, 500));
@@ -417,9 +636,8 @@ function QueryContent() {
         utterance.onend = () => setIsPlaying(false);
         window.speechSynthesis.speak(utterance);
         setIsPlaying(true);
-        toast("Reading response aloud (browser TTS fallback)", { icon: "🔊" });
       } else {
-        toast.error("TTS unavailable. Check Sarvam AI configuration.");
+        toast.error("TTS unavailable.");
       }
     } finally {
       setIsTTSLoading(false);
@@ -427,12 +645,11 @@ function QueryContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, selectedLanguage, stopAudio]);
 
-  // ── STT — records audio and sends to Sarvam backend for proper regional-language support ─────
+  // ── STT ────────────────────────────────────────────────────────────
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
   const handleVoiceInput = async () => {
-    // If already recording, stop and process
     if (isRecording) {
       mediaRecorderRef.current?.stop();
       setIsRecording(false);
@@ -462,12 +679,8 @@ function QueryContent() {
       };
 
       recorder.onstop = async () => {
-        // Stop all tracks so mic indicator clears
         stream.getTracks().forEach((t) => t.stop());
-
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        toast("Transcribing…", { icon: "✍️" });
-
         try {
           const transcript = await voiceAPI.speechToText(audioBlob, langCode);
           if (transcript) {
@@ -475,21 +688,17 @@ function QueryContent() {
             setInput(base ? `${base} ${transcript}` : transcript);
             toast.success("Voice transcribed!");
           } else {
-            toast.error("Could not transcribe audio. Please speak clearly.");
+            toast.error("Could not transcribe audio.");
           }
-        } catch (err) {
-          console.error("STT error", err);
-          toast.error("Voice transcription failed. Check microphone & try again.");
+        } catch {
+          toast.error("Voice transcription failed.");
         }
       };
 
-      // Save whatever was typed before recording
       preRecordTextRef.current = input;
       recorder.start();
       setIsRecording(true);
-      toast("Recording… tap mic again to stop", { icon: "🎙️" });
-    } catch (err) {
-      console.error("Mic access error", err);
+    } catch {
       toast.error("Microphone access denied.");
     }
   };
@@ -574,7 +783,11 @@ function QueryContent() {
                   <div className="flex-1 min-w-0 flex flex-col gap-3">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold uppercase tracking-wider text-primary">{t.neethiResponse}</span>
-                      <span className="text-[10px] text-gray-400 dark:text-slate-500">• Legal AI v1.0</span>
+                      {message.stage && (
+                        <span className="text-[10px] px-2 py-0.5 rounded border border-primary/20 bg-primary/5 text-primary font-medium">
+                          {message.stage}
+                        </span>
+                      )}
                     </div>
 
                     {/* Agent progress */}
@@ -617,6 +830,41 @@ function QueryContent() {
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                           {message.isStreaming && <span className="streaming-cursor" />}
                         </div>
+
+                        {/* Confirmation Card (stage: confirming) */}
+                        {!message.isStreaming && message.formulatedQuery && (
+                          <ConfirmationCard formulatedQuery={message.formulatedQuery} />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Clarification Questions (stage: clarifying) */}
+                    {!message.isStreaming && message.needsClarification && message.clarificationQuestions && (
+                      <div className="rounded-2xl bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-slate-800 p-5 shadow-sm">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="material-symbols-outlined text-primary text-[18px]">help</span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                            Clarifying Questions
+                          </span>
+                        </div>
+                        <ClarificationCard
+                          questions={message.clarificationQuestions}
+                          onAnswer={handleSend}
+                          disabled={isStreaming}
+                        />
+                      </div>
+                    )}
+
+                    {/* Retrieved Sections (stage: retrieving) */}
+                    {!message.isStreaming && message.retrievedSections && message.retrievedSections.length > 0 && (
+                      <div className="rounded-2xl bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-slate-800 p-5 shadow-sm">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="material-symbols-outlined text-primary text-[18px]">menu_book</span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                            Applicable Provisions
+                          </span>
+                        </div>
+                        <RetrievedSectionsCard sections={message.retrievedSections} />
                       </div>
                     )}
 
@@ -687,7 +935,7 @@ function QueryContent() {
                                 : "text-gray-400 dark:text-slate-600 hover:text-primary hover:bg-primary/10",
                               isTTSLoading && "opacity-60 pointer-events-none"
                             )}
-                            title={isPlaying ? "Stop audio" : isTTSLoading ? "Loading audio…" : "Read aloud (TTS)"}
+                            title={isPlaying ? "Stop audio" : "Read aloud"}
                           >
                             {isTTSLoading ? (
                               <span className="w-[17px] h-[17px] border-2 border-current border-t-transparent rounded-full animate-spin block" />
@@ -822,7 +1070,7 @@ function QueryContent() {
                   ? "border-primary/40 bg-primary/10 text-primary"
                   : "border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-500 hover:text-gray-700 dark:hover:text-slate-400"
               )}
-              title={voiceOverEnabled ? "Voice-over ON — click to disable" : "Click to enable auto voice-over for responses"}
+              title={voiceOverEnabled ? "Voice-over ON" : "Enable auto voice-over"}
             >
               <span className="material-symbols-outlined text-[14px]">
                 {voiceOverEnabled ? "volume_up" : "volume_off"}

@@ -1,0 +1,35 @@
+{
+  "skill_name": "neethi-legal-drafting",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "My neighbor has been illegally dumping construction waste on my property in Thrissur, Kerala since November 2024. He's done this four times. His name is Rajan Pillai and he lives at House No. 14, Nair Road, Thrissur. I am Suresh Menon, 45 years, residing at House No. 12, Nair Road, Thrissur. Help me draft a written complaint to the police.",
+      "expected_output": "A complete FIR written complaint addressed to the SHO of the local Thrissur police station. Should cite BNS sections (incident is post July 2024). Should include all provided facts without invention. Should include the DRAFT disclaimer. Should mention the right to a free copy under BNSS 173(2). Should NOT cite IPC sections.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I bought a Samsung refrigerator from Reliance Digital, MG Road Kochi on 3rd January 2025 for Rs. 45,000. It stopped cooling after 2 weeks. I complained to their customer care (Complaint No. RC-2025-0187) but they just kept postponing the technician visit for 6 weeks and finally said the compressor failure is not covered under warranty, which is wrong. I want to file a consumer complaint. My name is Anitha Krishnan, Flat 3B, Lakshmi Apartments, Vytilla, Ernakulam 682019.",
+      "expected_output": "A complete consumer complaint before the District Consumer Disputes Redressal Commission, Ernakulam (correct forum for Rs. 45,000 claim). Should identify Reliance Digital and Samsung India as opposite parties. Should use the Form 1 structure. Should include the complaint reference number RC-2025-0187. Should include a verification clause. Should include DRAFT disclaimer. Should claim refund or replacement plus compensation.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I want to file an RTI to find out why my building plan approval from the Thrissur Corporation has been pending for 8 months. My application reference is THRC/2024/BP/1823. Who do I address it to and what exactly should I ask?",
+      "expected_output": "An RTI application addressed to the Public Information Officer of Thrissur Municipal Corporation (Kerala state body, not central). Should ask specifically for the current status of application THRC/2024/BP/1823, any file notings on it, any objections raised, and the expected decision timeline. Should mention the Rs. 10 fee. Should reference the 30-day response timeline. Should include the Kerala state information about first appeal to departmental appellate authority. Should NOT use rtionline.gov.in (that is for central government). Should include DRAFT disclaimer.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "My landlord in Kozhikode has been harassing me for more than 2 months to vacate my rented house. He cut my water supply last week. He owes me my security deposit of Rs. 50,000 too. I want to send him a legal notice. My name is Mohammed Ashraf. The landlord is Abdul Kareem, House No. 45, Beach Road, Kozhikode.",
+      "expected_output": "A legal notice to Abdul Kareem for harassment and security deposit recovery. Critically, the skill should flag that Kerala Buildings (Lease and Rent Control) Act 1965 applies for tenancy disputes in Kerala, not just the Transfer of Property Act. Should mention that cutting water supply is an illegal act. Should demand restoration of water supply and return of security deposit. Should give 15-30 day notice period. Should include DRAFT disclaimer. Importantly: should NOT be a generic Section 80 CPC notice (that is for government opponents).",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "I need a bail application for my client Rajesh Kumar who was arrested on 15th March 2025 by Alappuzha police in FIR No. 142/2025 under BNS Section 303 (theft). He's been in Alappuzha Sub Jail since then. He has no criminal record, has a family of wife and two children, and works as a fisherman. I'm his advocate.",
+      "expected_output": "A bail application under BNSS Section 480 (regular bail, post-arrest). Addressed to the correct court — BNS Section 303 (theft) is triable by Any Magistrate per BNSS Schedule, so this should go to the Judicial Magistrate First Class or Chief Judicial Magistrate, Alappuzha. Should NOT go to Sessions Court for a theft matter. Should include grounds: bailable nature of offence (theft is bailable), family roots, first offender, no flight risk, employment as fisherman. Should note custody duration from 15th March 2025. Should ask about previous bail applications. Should include DRAFT disclaimer.",
+      "files": []
+    }
+  ]
+}

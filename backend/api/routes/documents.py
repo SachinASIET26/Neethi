@@ -97,6 +97,26 @@ _TEMPLATES: list[TemplateInfo] = [
         language="en",
         access_roles=["citizen", "lawyer", "legal_advisor", "police"],
     ),
+    TemplateInfo(
+        template_id="rti_application",
+        template_name="RTI Application",
+        description="Application under the Right to Information Act 2005",
+        required_fields=["applicant_name", "applicant_address", "target_department", "target_address", "information_sought"],
+        optional_fields=["applicant_contact", "preferred_format", "fee_payment_method", "bpl_card_number", "urgency_grounds", "relevant_file_reference"],
+        jurisdiction="all",
+        language="en",
+        access_roles=["citizen", "lawyer", "legal_advisor"],
+    ),
+    TemplateInfo(
+        template_id="consumer_complaint",
+        template_name="Consumer Complaint",
+        description="Consumer complaint under Consumer Protection Act 2019 (Form 1)",
+        required_fields=["complainant_name", "complainant_address", "complainant_contact", "opposite_party_name", "opposite_party_address", "product_or_service", "purchase_date", "amount_paid", "deficiency_description", "relief_sought"],
+        optional_fields=["total_claim_amount", "order_number", "complaint_reference", "earlier_correspondence", "expert_opinion"],
+        jurisdiction="all",
+        language="en",
+        access_roles=["citizen", "lawyer", "legal_advisor"],
+    ),
 ]
 
 _TEMPLATE_MAP = {t.template_id: t for t in _TEMPLATES}
@@ -181,7 +201,13 @@ async def create_draft(
                 detail="No LLM API key configured. Set MISTRAL_API_KEY or DEEPSEEK_API_KEY in .env.",
             )
 
-        prompt = _template_prompt(template, request.fields, request.include_citations)
+        # Use skill-enhanced prompt if available for this template
+        from backend.agents.skills.legal_drafting import get_skill_prompt
+
+        jurisdiction = request.fields.get("jurisdiction", "")
+        skill_prompt = get_skill_prompt(request.template_id, request.fields, jurisdiction)
+        prompt = skill_prompt if skill_prompt else _template_prompt(template, request.fields, request.include_citations)
+
         resp = await litellm.acompletion(
             model=model,
             messages=[{"role": "user", "content": prompt}],
@@ -202,7 +228,7 @@ async def create_draft(
     )
     draft_text = draft_text.rstrip() + disclaimer
 
-    title = f"{template.template_name} — {request.fields.get('accused_name') or request.fields.get('sender_name') or request.fields.get('client_name') or 'Draft'}"
+    title = f"{template.template_name} — {request.fields.get('accused_name') or request.fields.get('sender_name') or request.fields.get('client_name') or request.fields.get('complainant_name') or request.fields.get('applicant_name') or 'Draft'}"
     word_count = len(draft_text.split())
 
     draft = Draft(
@@ -297,7 +323,12 @@ async def update_draft(
         model = _MISTRAL_LARGE if _mistral_fallback_active else _CLAUDE_SONNET
         api_key = os.getenv("ANTHROPIC_API_KEY") if not _mistral_fallback_active else os.getenv("MISTRAL_API_KEY")
 
-        prompt = _template_prompt(template, merged_fields, True)
+        from backend.agents.skills.legal_drafting import get_skill_prompt
+
+        jurisdiction = merged_fields.get("jurisdiction", "")
+        skill_prompt = get_skill_prompt(draft.template_id, merged_fields, jurisdiction)
+        prompt = skill_prompt if skill_prompt else _template_prompt(template, merged_fields, True)
+
         resp = await litellm.acompletion(
             model=model,
             messages=[{"role": "user", "content": prompt}],
