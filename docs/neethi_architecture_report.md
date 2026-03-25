@@ -1,11 +1,11 @@
 # Neethi Legal AI — Architectural Analysis & Structured Implementation Plan
 ### A Ground-Truth Investigation Report: Data Sources, Vector Storage, and Multi-Agent Design
 
-> **Document Type:** Architectural Decision Record + Forward Implementation Plan  
-> **Project:** Neethi — Indian Legal AI Assistant  
-> **Stack:** CrewAI · FastAPI · PostgreSQL (Supabase) · Qdrant (Free Tier)  
-> **Date:** February 2026  
-> **Status:** Phases 1–5 complete. SC Judgments ingestion pipeline pending.
+> **Document Type:** Architectural Decision Record + Forward Implementation Plan
+> **Project:** Neethi — Indian Legal AI Assistant
+> **Stack:** CrewAI 1.11.0 · FastAPI 0.115.6 · PostgreSQL (Supabase) · Qdrant (client 1.12.0) · Next.js 16 · React 19
+> **Date:** March 2026 (last updated 2026-03-23)
+> **Status:** Phases 1–6 complete. Frontend implemented. LLM primary changed from Groq → Mistral Large. SC Judgments ingestion pipeline pending.
 
 ---
 

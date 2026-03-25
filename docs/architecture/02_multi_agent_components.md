@@ -9,46 +9,39 @@ graph LR
     subgraph AGENTS["CrewAI Agents"]
         QA["Query Analyst
         ---
-        Model: Groq Llama 3.3 70B
-        Tools: QueryClassifier
-               EntityExtractor
-               QueryExpander"]
+        Model: Mistral Large (→ Groq fallback)
+        Tools: QueryClassifierTool
+               StatuteNormalizationTool"]
 
         RS["Retrieval Specialist
         ---
-        Model: DeepSeek-Chat
-        Tools: QdrantHybridSearch
-               MetadataFilter
-               CrossEncoderReranker"]
+        Model: Mistral Large (→ Groq fallback)
+        Tools: QdrantSearchTool
+               CrossReferenceTool"]
 
         LR["Legal Reasoner
         ---
-        Model: DeepSeek-R1 / Claude Sonnet
-        Tools: IRACAnalyzer
-               SectionExtractor
-               PrecedentMapper"]
+        Model: Mistral Large
+        Tools: IRACAnalyzerTool
+               SectionLookupTool"]
 
         CV["Citation Verifier
         ---
-        Model: DeepSeek-Chat
-        Tools: SectionVerifier
-               CitationValidator
-               SourceCrossReference"]
+        Model: Mistral Large (→ DeepSeek fallback)
+        Tools: CitationVerificationTool
+               CrossReferenceTool"]
 
         RF["Response Formatter
         ---
-        Model: Groq Llama 3.3 70B
-        Tools: Simplifier
-               Formatter
-               ThesysVisual
-               SarvamTranslation"]
+        Model: Mistral Large (→ Groq fallback)
+        Tools: SarvamTranslation
+               ThesysVisual"]
 
-        DD["Document Drafter
+        DD["Document Drafter (Document Analyst)
         ---
-        Model: Claude Sonnet
+        Model: Claude Sonnet (anthropic 0.40.0)
         Tools: TemplateEngine
-               PDFGenerator
-               FieldValidator"]
+               PDFGenerator (WeasyPrint / ReportLab)"]
     end
 
     subgraph TOOLS["Custom Tools"]

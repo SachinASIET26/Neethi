@@ -19,8 +19,8 @@ graph TD
 
     subgraph EMBED["Embedding Layer"]
         BGE[BGE-M3 Embedder
-        FlagEmbedding 1.3.3
-        GPU recommended]
+        FlagEmbedding 1.3.5
+        GPU recommended — Lightning AI CUDA 12.8]
         DENSE[Dense Vector 1024d]
         SPARSE[Sparse Vector BM25]
         BGE --> DENSE
@@ -101,9 +101,19 @@ graph LR
 
 | Dimension | Type | Use |
 |---|---|---|
-| Dense 1024d | BGE-M3 | Semantic similarity |
-| Sparse BM25 | BGE-M3 | Keyword exact match |
+| Dense 1024d | BGE-M3 (FlagEmbedding 1.3.5) | Semantic similarity |
+| Sparse BM25 | BGE-M3 (FlagEmbedding 1.3.5) | Keyword exact match |
 | Scalar INT8 | Quantization | Memory optimization |
+
+**Query-type Weights (dense_weight, sparse_weight):**
+
+| Query Type | Dense | Sparse | Rationale |
+|---|---|---|---|
+| section_lookup | 1.0 | 4.0 | Favor exact section number keyword match |
+| criminal_offence | 2.0 | 1.5 | Balanced |
+| civil_conceptual | 3.0 | 1.0 | Favor semantic understanding |
+| old_statute | 1.0 | 3.0 | Favor keyword for legacy section numbers |
+| default | 2.0 | 1.0 | Balanced semantic |
 
 **Why BGE-M3?**
 - Single model pass generates both dense and sparse vectors

@@ -11,11 +11,12 @@ graph TB
         U4[Police]
     end
 
-    subgraph FRONTEND["Frontend Layer (Planned — Next.js)"]
+    subgraph FRONTEND["Frontend Layer — Next.js 16 + React 19"]
         FE1[Role-Based Dashboard]
         FE2[SSE Streaming UI]
-        FE3[Document Draft Editor]
+        FE3[Document Draft + Analyze]
         FE4[Multilingual Toggle]
+        FE5[Admin Panel]
     end
 
     subgraph API["API Layer — FastAPI"]
@@ -50,11 +51,11 @@ graph TB
         VDB3[(document_templates)]
     end
 
-    subgraph LLM["LLM Provider Layer — LiteLLM"]
-        LLM1[Groq Llama 3.3 70B]
-        LLM2[DeepSeek-R1]
-        LLM3[DeepSeek-Chat]
-        LLM4[Claude Sonnet]
+    subgraph LLM["LLM Provider Layer — LiteLLM (via crewai)"]
+        LLM0[Mistral Large — Primary]
+        LLM1[Groq Llama 3.3 70B — Fallback 1]
+        LLM2[DeepSeek-Chat — Fallback 2]
+        LLM3[Claude Sonnet — Document Drafting]
     end
 
     subgraph DATA["Data & Persistence Layer"]
@@ -83,14 +84,14 @@ graph TB
 
 ## Layer Responsibilities
 
-| Layer | Technology | Responsibility |
-|---|---|---|
-| User | Browser / Mobile | Role-based interface access |
-| Frontend | Next.js (planned) | SSR dashboard, streaming UI, drafts |
-| API | FastAPI + Uvicorn | Auth, routing, middleware, SSE |
-| Agent Orchestration | CrewAI | Sequential multi-agent legal reasoning |
-| RAG | Qdrant + BGE-M3 | Hybrid retrieval, reranking, filtering |
-| Vector Store | Qdrant Cloud | Dense + sparse vector storage |
-| LLM Providers | Groq / DeepSeek / Anthropic | Classification, reasoning, verification |
-| Persistence | PostgreSQL + Redis | Users, sessions, caching |
-| External Services | Sarvam / Thesys / SerpAPI | Translation, visuals, discovery |
+| Layer | Technology | Version | Responsibility |
+|---|---|---|---|
+| User | Browser / Mobile | — | Role-based interface access |
+| Frontend | Next.js + React | 16.1.6 / 19.2.3 | SSR dashboard, SSE streaming, drafts, admin |
+| API | FastAPI + Uvicorn | 0.115.6 / 0.34.0 | Auth, routing, middleware, SSE |
+| Agent Orchestration | CrewAI | 1.11.0 | Sequential multi-agent legal reasoning |
+| RAG | Qdrant + BGE-M3 | client 1.12.0 / FlagEmbedding 1.3.5 | Hybrid retrieval, reranking, filtering |
+| Vector Store | Qdrant Cloud | — | Dense 1024d + sparse BM25 vector storage |
+| LLM Providers | Mistral / Groq / DeepSeek / Anthropic | via LiteLLM | Classification, reasoning, verification, drafting |
+| Persistence | PostgreSQL + Redis | SQLAlchemy 2.0.36 / redis 5.2.1 | Users, sessions, caching |
+| External Services | Sarvam / Thesys / SerpAPI / PageIndex | — | Translation, visuals, discovery, RAG |

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -32,12 +32,12 @@
     "react-markdown": "^10.1.0",
     "recharts": "^3.7.0",
     "remark-gfm": "^4.0.1",
-    "tailwind-merge": "^3.5.0",
+    "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",
     "tiny-invariant": "^1.3.3",
-    "zod": "^4.3.6",
-    "zod-to-json-schema": "^3.25.1",
-    "zustand": "^5.0.11"
+    "zod": "^3.24.1",
+    "zod-to-json-schema": "^3.24.1",
+    "zustand": "^4.5.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

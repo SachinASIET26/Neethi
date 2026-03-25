@@ -32,6 +32,8 @@ graph TD
         R7["/translate — Language\nPOST /text"]
         R8["/voice — TTS/STT\nPOST /tts\nPOST /stt"]
         R9["/admin — Operations\nPOST /ingest\nGET /health"]
+        R10["/conversation — Sessions\nGET /\nPOST /"]
+        R11["/documents/analyze — Analysis\nPOST /analyze\nGET /analyze/stream SSE"]
     end
 
     subgraph SERVICES["Downstream Services"]
@@ -103,8 +105,9 @@ sequenceDiagram
 backend/main.py
 ├── Lifespan: DB table creation + Redis warmup
 ├── Middleware: CORS → Request ID → Rate Limit
-└── Routers: auth, query, cases, documents, sections,
-             resources, translate, voice, admin
+└── Routers: auth, query, cases, documents, document_analysis,
+             sections, resources, translate, voice,
+             conversation, admin
 ```
 
 Start command:

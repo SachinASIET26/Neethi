@@ -10,31 +10,36 @@ Neethi AI is an agentic AI system for the Indian Legal Domain serving lawyers, c
 
 ## Tech Stack
 
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| AI Framework | CrewAI | Multi-agent orchestration |
-| API Backend | FastAPI | REST API with SSE streaming |
-| Vector Database | Qdrant | Hybrid (dense+sparse) RAG retrieval |
-| Frontend | Next.js (React) | Role-based dashboard with SSR |
-| Translation | Sarvam AI | Indian language support |
-| Visual UI | Thesys API | Visual explanations for layman users |
-| Search | SERP API | Nearby legal resource discovery |
-| PDF Processing | PyMuPDF + pdfplumber | Legal document extraction |
-| Document Generation | Jinja2 + WeasyPrint | Template-based legal doc drafting |
-| Database | PostgreSQL (Supabase) | User data, sessions, drafts |
-| Cache | Redis (Upstash) | Response caching, rate limiting |
-| GPU Compute | Lightning AI | Embedding generation, model inference |
+| Component | Technology | Version | Purpose |
+|-----------|-----------|---------|---------|
+| AI Framework | CrewAI | 1.11.0 | Multi-agent orchestration |
+| API Backend | FastAPI + Uvicorn | 0.115.6 / 0.34.0 | REST API with SSE streaming |
+| Vector Database | Qdrant | client 1.12.0 | Hybrid (dense+sparse) RAG retrieval |
+| Frontend | Next.js 16 + React 19 | next 16.1.6 | Role-based dashboard with SSR |
+| Translation | Sarvam AI | HTTP API | Indian language support |
+| Visual UI | Thesys API | genui-sdk 0.8.5 | Visual explanations for layman users |
+| Search | SERP API | HTTP API | Nearby legal resource discovery |
+| PDF Processing | PyMuPDF + pdfplumber | 1.24.14 / 0.11.4 | Legal document extraction |
+| Document Generation | Jinja2 + WeasyPrint + ReportLab | 3.1.4 / 62.3 / 4.2.5 | Template-based legal doc drafting |
+| Embeddings | FlagEmbedding BGE-M3 | 1.3.5 | Dense 1024d + sparse BM25 |
+| Re-ranking | sentence-transformers CrossEncoder | 5.2.0 | ms-marco-MiniLM-L-6-v2 |
+| Database | PostgreSQL (Supabase) | SQLAlchemy 2.0.36 | User data, sessions, drafts |
+| Cache | Redis (Upstash) | redis 5.2.1 | Response caching, rate limiting |
+| GPU Compute | Lightning AI (CUDA 12.8) | torch 2.8.0+cu128 | Embedding generation, model inference |
 
 ## LLM Provider Strategy
 
-| Task | Primary Model | Fallback |
-|------|--------------|----------|
-| Query Classification | Groq (Llama 3.3 70B) | DeepSeek-Chat |
-| Legal Reasoning (IRAC) | DeepSeek-R1 | Claude Sonnet |
-| Response Formatting | Groq (Llama 3.3 70B) | DeepSeek-Chat |
-| Citation Verification | DeepSeek-Chat | Claude Haiku |
-| Document Drafting | Claude Sonnet | DeepSeek-R1 |
-| Embeddings | See docs/embedding_model_comparison.md | - |
+Selection order at startup (first key found in `.env` wins):
+
+| Priority | Provider | Model | Tasks |
+|----------|---------|-------|-------|
+| 1 (Primary) | Mistral AI | mistral-large-latest | All agent tasks — reliable tool use, no token cap |
+| 2 (Fallback 1) | Groq | llama-3.3-70b-versatile | Fast classification, formatting |
+| 3 (Fallback 2) | DeepSeek | deepseek-chat | Legal reasoning, citation verification |
+| Dedicated | Anthropic | claude-sonnet-4-5 | Document drafting only |
+| Embeddings | BGE-M3 (FlagEmbedding) | BAAI/bge-m3 | Dense + sparse in one pass |
+
+See `backend/config/llm_config.py` for selection logic.
 
 ---
 
@@ -87,12 +92,16 @@ These are the Claude Code agents that collaborate to build this system:
 #### 5. Frontend Agent
 - **Role**: Next.js UI development, role-based dashboards
 - **Scope**: `frontend/`
+- **Stack**: Next.js 16.1.6 (App Router) + React 19 + Tailwind CSS v4 + Zustand 4.x
+- **Status**: Implemented — 17 pages across auth, dashboard, admin routes
 - **Rules**:
   - Role-aware UI (citizen sees different UI than lawyer)
-  - Implement SSE streaming for real-time response display
+  - SSE streaming implemented in `/query` page
   - Show verification status prominently on every response
   - Accessible design (WCAG 2.1 AA)
   - Mobile-responsive (many Indian users are mobile-first)
+  - Backend proxy configured via `next.config.ts` rewrites — browser calls `/api/v1/...`
+  - Use `npm install --legacy-peer-deps` due to peer dep version pinning in @crayonai packages
 
 #### 6. Data Pipeline Agent
 - **Role**: PDF preprocessing, data ingestion, scraping
