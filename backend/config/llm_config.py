@@ -99,7 +99,6 @@ def _build_llm(temperature: float, max_tokens: int) -> LLM:
             max_tokens=max_tokens,
             # Handle Mistral Free Tier rate limits:
             max_retries=20,         # High retry count for free tier
-            rpm_limit=2,            # 2 requests per minute (30s between calls)
         )
 
     groq_key = os.getenv("GROQ_API_KEY", "").strip()
