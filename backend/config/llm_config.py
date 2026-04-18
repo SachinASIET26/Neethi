@@ -110,7 +110,9 @@ def _build_llm(temperature: float, max_tokens: int) -> LLM:
             temperature=temperature,
             max_tokens=max_tokens,
             # Handle Mistral Free Tier rate limits:
-            max_retries=10,         # Aggressive backoff for free tier
+            max_retries=10,
+            # Force 2 requests per minute max to stay safe on free tier:
+            rpm_limit=2,            
         )
 
     deepseek_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
