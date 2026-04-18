@@ -84,23 +84,11 @@ def set_mistral_fallback(active: bool) -> None:
 # ---------------------------------------------------------------------------
 
 def _build_llm(temperature: float, max_tokens: int) -> LLM:
-    """Return an LLM using the first configured API key: Groq → Mistral → DeepSeek.
+    """Return an LLM using the first configured API key: Mistral → Groq → DeepSeek.
 
-    Priority is Groq first because its free tier handles the concurrent agentic
-    workload of Neethi AI more reliably than Mistral's free RPM limits.
+    Priority is Mistral because its free tier 'tokens per minute' is more flexible
+    than Groq's 12K limit. Using 20 retries to handle rate limits.
     """
-    groq_key = os.getenv("GROQ_API_KEY", "").strip()
-    if groq_key:
-        logger.debug("llm_config: using Groq Llama 3.3 70B")
-        return LLM(
-            model=_GROQ_LLAMA,
-            api_key=groq_key,
-            temperature=temperature,
-            # Groq free tier: cap tokens to conserve the 12K TPM / 100K TPD budget
-            max_tokens=min(max_tokens, 4096),
-            max_retries=10,         # Increased from 5 to handle tight TPM limits
-        )
-
     mistral_key = os.getenv("MISTRAL_API_KEY", "").strip()
     if mistral_key:
         logger.debug("llm_config: using Mistral Large")
@@ -110,9 +98,20 @@ def _build_llm(temperature: float, max_tokens: int) -> LLM:
             temperature=temperature,
             max_tokens=max_tokens,
             # Handle Mistral Free Tier rate limits:
+            max_retries=20,         # High retry count for free tier
+            rpm_limit=2,            # 2 requests per minute (30s between calls)
+        )
+
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    if groq_key:
+        logger.debug("llm_config: using Groq Llama 3.3 70B")
+        return LLM(
+            model=_GROQ_LLAMA,
+            api_key=groq_key,
+            temperature=temperature,
+            # Groq free tier: cap tokens to conserve the 12K TPM budget
+            max_tokens=min(max_tokens, 4096),
             max_retries=10,
-            # Force 2 requests per minute max to stay safe on free tier:
-            rpm_limit=2,            
         )
 
     deepseek_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
