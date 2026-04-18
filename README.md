@@ -1,3 +1,13 @@
+---
+title: Neethi AI Backend
+emoji: ⚖️
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Neethi AI — Indian Legal Domain Agentic AI
 
 > **Core Principle:** In legal, a wrong answer is worse than no answer.
