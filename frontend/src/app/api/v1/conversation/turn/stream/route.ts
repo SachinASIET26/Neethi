@@ -13,8 +13,6 @@ import { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Allow up to 60 seconds (Vercel Hobby plan limit)
-export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
