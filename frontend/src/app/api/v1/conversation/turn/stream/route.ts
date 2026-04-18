@@ -13,9 +13,8 @@ import { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Allow up to 10 minutes: full CrewAI pipeline (5 agents + LLM calls) can
-// take 2-8 minutes; 600 s gives headroom for slow providers.
-export const maxDuration = 600;
+// Allow up to 60 seconds (Vercel Hobby plan limit)
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
