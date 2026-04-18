@@ -84,11 +84,23 @@ def set_mistral_fallback(active: bool) -> None:
 # ---------------------------------------------------------------------------
 
 def _build_llm(temperature: float, max_tokens: int) -> LLM:
-    """Return an LLM using the first configured API key: Mistral → Groq → DeepSeek.
+    """Return an LLM using the first configured API key: Groq → Mistral → DeepSeek.
 
-    Fails loudly at crew build time if no key is found — better than silently
-    returning wrong legal answers because of a missing env var.
+    Priority is Groq first because its free tier handles the concurrent agentic
+    workload of Neethi AI more reliably than Mistral's free RPM limits.
     """
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    if groq_key:
+        logger.debug("llm_config: using Groq Llama 3.3 70B")
+        return LLM(
+            model=_GROQ_LLAMA,
+            api_key=groq_key,
+            temperature=temperature,
+            # Groq free tier: cap tokens to conserve the 12K TPM / 100K TPD budget
+            max_tokens=min(max_tokens, 4096),
+            max_retries=5,
+        )
+
     mistral_key = os.getenv("MISTRAL_API_KEY", "").strip()
     if mistral_key:
         logger.debug("llm_config: using Mistral Large")
@@ -98,19 +110,7 @@ def _build_llm(temperature: float, max_tokens: int) -> LLM:
             temperature=temperature,
             max_tokens=max_tokens,
             # Handle Mistral Free Tier rate limits:
-            max_retries=5,          # LiteLLM automatic backoff
-        )
-
-    groq_key = os.getenv("GROQ_API_KEY", "").strip()
-    if groq_key:
-        logger.info("llm_config: MISTRAL_API_KEY not set — falling back to Groq Llama 3.3 70B")
-        return LLM(
-            model=_GROQ_LLAMA,
-            api_key=groq_key,
-            temperature=temperature,
-            # Groq free tier: cap tokens to conserve the 12K TPM / 100K TPD budget
-            max_tokens=min(max_tokens, 4096),
-            max_retries=5,
+            max_retries=10,         # Aggressive backoff for free tier
         )
 
     deepseek_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
