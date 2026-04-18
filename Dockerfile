@@ -25,9 +25,14 @@ RUN pip install --no-cache-dir --upgrade pip wheel setuptools
 # Copy consolidated requirements
 COPY requirements.txt .
 
-# Install dependencies one by one to better catch errors if needed, 
-# or use the file but add a pre-install for the heavy ones.
+# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Force install FlagEmbedding specifically to ensure it's present
+RUN pip install --no-cache-dir FlagEmbedding==1.3.2
+
+# Verification step: if this fails, the build fails
+RUN python3 -c "from FlagEmbedding import BGEM3FlagModel; print('SUCCESS: FlagEmbedding is installed and importable')"
 
 # Copy the entire Neethi project
 COPY . .
