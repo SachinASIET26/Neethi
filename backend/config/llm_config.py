@@ -98,7 +98,7 @@ def _build_llm(temperature: float, max_tokens: int) -> LLM:
             temperature=temperature,
             # Groq free tier: cap tokens to conserve the 12K TPM / 100K TPD budget
             max_tokens=min(max_tokens, 4096),
-            max_retries=5,
+            max_retries=10,         # Increased from 5 to handle tight TPM limits
         )
 
     mistral_key = os.getenv("MISTRAL_API_KEY", "").strip()
