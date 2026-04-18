@@ -97,6 +97,8 @@ def _build_llm(temperature: float, max_tokens: int) -> LLM:
             api_key=mistral_key,
             temperature=temperature,
             max_tokens=max_tokens,
+            # Handle Mistral Free Tier rate limits:
+            max_retries=5,          # LiteLLM automatic backoff
         )
 
     groq_key = os.getenv("GROQ_API_KEY", "").strip()
@@ -108,6 +110,7 @@ def _build_llm(temperature: float, max_tokens: int) -> LLM:
             temperature=temperature,
             # Groq free tier: cap tokens to conserve the 12K TPM / 100K TPD budget
             max_tokens=min(max_tokens, 4096),
+            max_retries=5,
         )
 
     deepseek_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
