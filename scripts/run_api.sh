@@ -47,9 +47,8 @@ check_env() {
 check_env DATABASE_URL
 check_env QDRANT_URL
 check_env QDRANT_API_KEY
-check_env GROQ_API_KEY
 
-echo -e "\n  Optional (warning only):"
+echo -e "\n  LLM (first key found becomes primary):"
 warn_env() {
     if [ -z "${!1}" ]; then
         echo -e "  ${YELLOW}⚠ $1 not set — $2 will be disabled${RESET}"
@@ -57,10 +56,13 @@ warn_env() {
         echo -e "  ${GREEN}✓ $1 is set${RESET}"
     fi
 }
+warn_env MISTRAL_API_KEY     "Primary LLM (Mistral Large) — recommended"
+warn_env GROQ_API_KEY        "Fallback LLM (Llama 3.3 70B)"
+warn_env DEEPSEEK_API_KEY    "Fallback LLM (DeepSeek-Chat)"
 warn_env ANTHROPIC_API_KEY   "Document drafting (Claude Sonnet)"
-warn_env MISTRAL_API_KEY     "Mistral fallback"
 warn_env SARVAM_API_KEY      "Translation and Voice (TTS/STT)"
 warn_env SERP_API_KEY        "Nearby legal resources"
+warn_env THESYS_API_KEY      "Thesys visual components"
 warn_env JWT_SECRET_KEY      "JWT (will use insecure default)"
 
 if [ $MISSING -gt 0 ]; then
@@ -74,14 +76,7 @@ fi
 # =============================================================================
 echo -e "\n${BOLD}Step 2: Installing Phase 6 FastAPI packages...${RESET}"
 
-pip install --quiet \
-    "fastapi==0.115.6" \
-    "uvicorn[standard]==0.34.0" \
-    "python-jose[cryptography]==3.3.0" \
-    "passlib[bcrypt]==1.7.4" \
-    "python-multipart==0.0.20" \
-    "email-validator==2.2.0" \
-    "reportlab==4.2.5"
+pip install --quiet -r requirements.txt
 
 echo -e "${GREEN}✓ Phase 6 packages installed${RESET}"
 
@@ -197,4 +192,7 @@ uvicorn backend.main:app \
     --port 8000 \
     --reload \
     --reload-dir backend \
+    --loop asyncio \
     --log-level info
+# NOTE: --loop asyncio is required — CrewAI uses nest_asyncio which cannot patch uvloop
+# NOTE: --reload-dir backend prevents reloader from watching frontend/node_modules/

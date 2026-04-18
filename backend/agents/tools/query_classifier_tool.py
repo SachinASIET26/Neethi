@@ -71,7 +71,7 @@ RULES:
 - Query Type rules (drives RRF weights — pick EXACTLY ONE):
   section_lookup   → Intent = section_lookup (direct section text queries: "what does s.103 say")
   criminal_offence → Legal Domain = criminal_substantive AND Intent ≠ section_lookup
-  civil_conceptual → Legal Domain in {civil, property, family, labor, consumer, corporate} AND Intent ≠ section_lookup
+  civil_conceptual → Legal Domain in {{civil, property, family, labor, consumer, corporate}} AND Intent ≠ section_lookup
   procedural       → Legal Domain = criminal_procedural OR Intent = procedure_guidance
   old_statute      → Contains Old Statutes = true AND query is about old act text (not normalized)
   default          → everything else (constitutional, evidence, general)
@@ -144,7 +144,14 @@ class QueryClassifierTool(BaseTool):
         if not query.strip():
             return "CLASSIFICATION ERROR: Empty query provided."
 
-        prompt = _CLASSIFICATION_PROMPT.format(query=query, user_role=user_role)
+        try:
+            prompt = _CLASSIFICATION_PROMPT.format(query=query, user_role=user_role)
+        except KeyError as exc:
+            logger.error(
+                "query_classifier: prompt formatting failed (unescaped brace?): %s — using fallback",
+                exc,
+            )
+            return _fallback_classification(query, user_role)
 
         # Try Mistral Large first, fall back to Groq Llama 3.3 70B
         for _model, _key_env in [

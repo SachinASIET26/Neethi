@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["*.cloudspaces.litng.ai", "*.lightning.ai"],
   images: {
     remotePatterns: [
       {

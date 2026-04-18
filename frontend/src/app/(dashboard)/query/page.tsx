@@ -12,9 +12,7 @@ import { getVerificationColor, getConfidenceColor, cn } from "@/lib/utils";
 import type {
   QueryResponse, CitationResult, ActionSuggestion,
   SSEAgentEvent, SSETokenEvent, SSECompleteEvent,
-  SSEIntentEvent, SSEClarificationEvent, SSEActionSuggestionsEvent,
-  ClarifyingQuestion, FormulatedQuery, RetrievedSection,
-  ConversationStage,
+  SSEActionSuggestionsEvent,
 } from "@/types";
 import toast from "react-hot-toast";
 
@@ -28,11 +26,6 @@ interface Message {
   agents?: string[];
   progress?: number;
   suggestions?: ActionSuggestion[];
-  needsClarification?: boolean;
-  clarificationQuestions?: ClarifyingQuestion[];
-  formulatedQuery?: FormulatedQuery;
-  retrievedSections?: RetrievedSection[];
-  stage?: ConversationStage;
   intent?: string;
 }
 
@@ -62,195 +55,6 @@ function CitationTag({ citation }: { citation: CitationResult }) {
       </span>
       {citation.act_code.split("_")[0]} {citation.section_number}
     </span>
-  );
-}
-
-// ── Clarification Questions Card ──────────────────────────────────────
-function ClarificationCard({
-  questions,
-  onAnswer,
-  disabled,
-}: {
-  questions: ClarifyingQuestion[];
-  onAnswer: (answer: string) => void;
-  disabled: boolean;
-}) {
-  const [freeTextAnswers, setFreeTextAnswers] = useState<Record<string, string>>({});
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
-
-  const handleOptionClick = (qId: string, option: string) => {
-    setSelectedOptions((prev) => ({ ...prev, [qId]: option }));
-  };
-
-  const handleSubmitAnswers = () => {
-    const parts: string[] = [];
-    for (const q of questions) {
-      const selected = selectedOptions[q.id];
-      const freeText = freeTextAnswers[q.id];
-      if (selected) {
-        parts.push(`${q.text} — ${selected}`);
-      } else if (freeText?.trim()) {
-        parts.push(`${q.text} — ${freeText.trim()}`);
-      }
-    }
-    if (parts.length > 0) {
-      onAnswer(parts.join(". "));
-    }
-  };
-
-  const hasAnyAnswer = questions.some(
-    (q) => selectedOptions[q.id] || freeTextAnswers[q.id]?.trim()
-  );
-
-  return (
-    <div className="space-y-4 mt-3">
-      {questions.map((q) => (
-        <div key={q.id} className="space-y-2">
-          <p className="text-sm text-gray-700 dark:text-slate-300 font-medium">{q.text}</p>
-          {q.options ? (
-            <div className="flex flex-wrap gap-2">
-              {q.options.map((opt) => (
-                <button
-                  key={opt}
-                  onClick={() => handleOptionClick(q.id, opt)}
-                  disabled={disabled}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg border text-xs font-medium transition-all",
-                    selectedOptions[q.id] === opt
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-400 hover:border-primary/40 hover:text-primary",
-                    disabled && "opacity-40 pointer-events-none"
-                  )}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <input
-              type="text"
-              value={freeTextAnswers[q.id] || ""}
-              onChange={(e) =>
-                setFreeTextAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
-              }
-              disabled={disabled}
-              placeholder="Type your answer..."
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 text-sm text-gray-800 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 disabled:opacity-40"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && hasAnyAnswer) handleSubmitAnswers();
-              }}
-            />
-          )}
-        </div>
-      ))}
-      <button
-        onClick={handleSubmitAnswers}
-        disabled={disabled || !hasAnyAnswer}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-amber-600 transition-colors disabled:opacity-40 disabled:pointer-events-none"
-      >
-        <span className="material-symbols-outlined text-[16px]">send</span>
-        Submit answers
-      </button>
-    </div>
-  );
-}
-
-// ── Retrieved Sections Card ───────────────────────────────────────────
-function RetrievedSectionsCard({
-  sections,
-}: {
-  sections: RetrievedSection[];
-}) {
-  return (
-    <div className="space-y-2 mt-3">
-      {sections.map((s, i) => (
-        <div
-          key={`${s.act_code}-${s.section_number}-${i}`}
-          className="flex items-start gap-3 p-3 rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/30"
-        >
-          <span
-            className={cn(
-              "material-symbols-outlined text-[18px] mt-0.5 flex-shrink-0",
-              s.verification_status === "VERIFIED"
-                ? "text-emerald-500"
-                : "text-amber-500"
-            )}
-          >
-            {s.verification_status === "VERIFIED" ? "verified" : "warning"}
-          </span>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">
-              {s.act_code.replace(/_/g, " ")} Section {s.section_number}
-              {s.section_title && (
-                <span className="font-normal text-gray-500 dark:text-slate-400">
-                  {" — "}{s.section_title}
-                </span>
-              )}
-            </p>
-            {s.reason_applicable && (
-              <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
-                {s.reason_applicable}
-              </p>
-            )}
-          </div>
-          <span
-            className={cn(
-              "text-[10px] px-2 py-0.5 rounded border font-medium flex-shrink-0",
-              s.relevance === "RELEVANT"
-                ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-400/10 border-emerald-200 dark:border-emerald-400/20"
-                : "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-400/10 border-amber-200 dark:border-amber-400/20"
-            )}
-          >
-            {s.relevance}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Confirmation Card ─────────────────────────────────────────────────
-function ConfirmationCard({
-  formulatedQuery,
-}: {
-  formulatedQuery: FormulatedQuery;
-}) {
-  const domainLabels: Record<string, string> = {
-    criminal: "Criminal Law",
-    civil: "Civil Law",
-    property: "Property / Tenancy",
-    family: "Family Law",
-    corporate: "Corporate / Commercial",
-    constitutional: "Constitutional Law",
-    labour: "Labour / Employment",
-    consumer: "Consumer Protection",
-    environmental: "Environmental Law",
-  };
-
-  return (
-    <div className="mt-3 p-4 rounded-xl border border-primary/20 bg-primary/5 dark:bg-primary/5 space-y-3">
-      <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-primary text-[18px]">description</span>
-        <span className="text-xs font-bold uppercase tracking-wider text-primary">Your Query</span>
-      </div>
-      <p className="text-sm text-gray-800 dark:text-slate-200 leading-relaxed">
-        {formulatedQuery.summary}
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-medium">
-          <span className="material-symbols-outlined text-[12px]">folder</span>
-          {domainLabels[formulatedQuery.domain] || formulatedQuery.domain}
-        </span>
-        {formulatedQuery.sub_domains.map((sd) => (
-          <span
-            key={sd}
-            className="px-2.5 py-1 rounded-full border border-gray-200 dark:border-slate-700 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 text-xs font-medium"
-          >
-            {sd}
-          </span>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -333,40 +137,7 @@ function QueryContent() {
 
   // ── Shared SSE event handler ────────────────────────────────────────
   const _handleStreamEvent = useCallback(async (event: string, payload: unknown, assistantId: string, originalQuery: string) => {
-    if (event === "intent") {
-      const p = payload as SSEIntentEvent;
-      setMessages((prev) =>
-        prev.map((m) => m.id === assistantId ? { ...m, intent: p.intent } : m)
-      );
-    } else if (event === "stage") {
-      const p = payload as { stage: ConversationStage };
-      setMessages((prev) =>
-        prev.map((m) => m.id === assistantId ? { ...m, stage: p.stage } : m)
-      );
-    } else if (event === "clarification") {
-      const p = payload as SSEClarificationEvent;
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId
-            ? { ...m, needsClarification: true, clarificationQuestions: p.questions }
-            : m
-        )
-      );
-    } else if (event === "formulated_query") {
-      const p = payload as FormulatedQuery;
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId ? { ...m, formulatedQuery: p, stage: "confirming" } : m
-        )
-      );
-    } else if (event === "retrieved_sections") {
-      const p = payload as { sections: RetrievedSection[] };
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId ? { ...m, retrievedSections: p.sections, stage: "retrieving" } : m
-        )
-      );
-    } else if (event === "action_suggestions") {
+    if (event === "action_suggestions") {
       const p = payload as SSEActionSuggestionsEvent;
       setMessages((prev) =>
         prev.map((m) =>
@@ -389,11 +160,7 @@ function QueryContent() {
         prev.map((m) => m.id === assistantId ? { ...m, content: m.content + p.text } : m)
       );
     } else if (event === "complete") {
-      const p = payload as SSECompleteEvent & {
-        session_id?: string;
-        needs_clarification?: boolean;
-        stage?: ConversationStage;
-      };
+      const p = payload as SSECompleteEvent & { session_id?: string };
 
       if (p.session_id) {
         setSessionId(p.session_id);
@@ -403,14 +170,7 @@ function QueryContent() {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantId
-            ? {
-                ...m,
-                isStreaming: false,
-                metadata: p,
-                progress: 100,
-                needsClarification: p.needs_clarification,
-                stage: p.stage || m.stage,
-              }
+            ? { ...m, isStreaming: false, metadata: p, progress: 100 }
             : m
         )
       );
@@ -783,11 +543,6 @@ function QueryContent() {
                   <div className="flex-1 min-w-0 flex flex-col gap-3">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold uppercase tracking-wider text-primary">{t.neethiResponse}</span>
-                      {message.stage && (
-                        <span className="text-[10px] px-2 py-0.5 rounded border border-primary/20 bg-primary/5 text-primary font-medium">
-                          {message.stage}
-                        </span>
-                      )}
                     </div>
 
                     {/* Agent progress */}
@@ -831,40 +586,6 @@ function QueryContent() {
                           {message.isStreaming && <span className="streaming-cursor" />}
                         </div>
 
-                        {/* Confirmation Card (stage: confirming) */}
-                        {!message.isStreaming && message.formulatedQuery && (
-                          <ConfirmationCard formulatedQuery={message.formulatedQuery} />
-                        )}
-                      </div>
-                    )}
-
-                    {/* Clarification Questions (stage: clarifying) */}
-                    {!message.isStreaming && message.needsClarification && message.clarificationQuestions && (
-                      <div className="rounded-2xl bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-slate-800 p-5 shadow-sm">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="material-symbols-outlined text-primary text-[18px]">help</span>
-                          <span className="text-xs font-bold uppercase tracking-wider text-primary">
-                            Clarifying Questions
-                          </span>
-                        </div>
-                        <ClarificationCard
-                          questions={message.clarificationQuestions}
-                          onAnswer={handleSend}
-                          disabled={isStreaming}
-                        />
-                      </div>
-                    )}
-
-                    {/* Retrieved Sections (stage: retrieving) */}
-                    {!message.isStreaming && message.retrievedSections && message.retrievedSections.length > 0 && (
-                      <div className="rounded-2xl bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-slate-800 p-5 shadow-sm">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="material-symbols-outlined text-primary text-[18px]">menu_book</span>
-                          <span className="text-xs font-bold uppercase tracking-wider text-primary">
-                            Applicable Provisions
-                          </span>
-                        </div>
-                        <RetrievedSectionsCard sections={message.retrievedSections} />
                       </div>
                     )}
 

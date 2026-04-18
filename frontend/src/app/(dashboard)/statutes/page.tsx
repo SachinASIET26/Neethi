@@ -14,11 +14,17 @@ const QUICK_ACTS = [
 ];
 
 // ── Parse legal text into structured clauses ───────────────────────────
+// Matches roman numerals: i, ii, iii, iv, v, vi, vii, viii, ix, x, xi, xii ...
+const ROMAN_RE = /^\((x{0,3})(ix|iv|v?i{0,3})\)$/i;
+
 function parseLegalText(text: string): { tag: string; text: string }[] {
   if (!text) return [];
   const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
   return lines.map((line) => {
     if (/^\(\d+\)/.test(line)) return { tag: "clause", text: line };
+    // Roman numeral sub-sub-clauses — must be checked before single-letter sub
+    const romanToken = line.match(/^(\([ivxlcdmIVXLCDM]+\))/)?.[1];
+    if (romanToken && ROMAN_RE.test(romanToken)) return { tag: "roman", text: line };
     if (/^\([a-z]\)/.test(line)) return { tag: "sub", text: line };
     if (/^Explanation/i.test(line)) return { tag: "explanation", text: line };
     if (/^Provided/i.test(line)) return { tag: "proviso", text: line };
@@ -53,6 +59,19 @@ function LegalTextDisplay({ text }: { text: string }) {
               </span>
               <p className="text-gray-700 dark:text-slate-300 leading-relaxed">
                 {c.text.replace(/^\([a-z]\)\s*/, "")}
+              </p>
+            </div>
+          );
+        }
+        if (c.tag === "roman") {
+          const label = c.text.match(/^\(([ivxlcdmIVXLCDM]+)\)/i)?.[1]?.toLowerCase();
+          return (
+            <div key={i} className="flex gap-3 ml-14">
+              <span className="flex-shrink-0 min-w-[28px] h-6 flex items-center justify-center rounded bg-slate-100 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 text-[11px] font-semibold mt-0.5 px-1">
+                {label}
+              </span>
+              <p className="text-gray-600 dark:text-slate-400 leading-relaxed">
+                {c.text.replace(/^\([ivxlcdmIVXLCDM]+\)\s*/i, "")}
               </p>
             </div>
           );

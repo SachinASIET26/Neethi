@@ -112,5 +112,9 @@ backend/main.py
 
 Start command:
 ```bash
-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --loop asyncio
+# Development (auto-reload — only watch backend/ to avoid node_modules churn)
+uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir backend --loop asyncio
+
+# --loop asyncio is REQUIRED: CrewAI nest_asyncio cannot patch uvloop (uvicorn default)
+# --reload-dir backend is REQUIRED: prevents reloader from watching frontend/node_modules/
 ```

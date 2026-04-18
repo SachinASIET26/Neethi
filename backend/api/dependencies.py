@@ -125,28 +125,6 @@ async def check_rate_limit(user: User, db: AsyncSession) -> int:
     """Check and increment the user's daily query counter.
 
     Returns the number of remaining queries after this one.
-    Raises 429 if the daily limit is exceeded.
+    Rate limiting is currently disabled.
     """
-    from datetime import date, datetime, timezone
-
-    limit = ROLE_DAILY_LIMITS.get(user.role, 20)
-
-    # Reset counter if last reset was a different calendar day (UTC)
-    today = date.today()
-    if user.query_count_reset_at is None or user.query_count_reset_at.date() < today:
-        user.query_count_today = 0
-        user.query_count_reset_at = datetime.now(timezone.utc)
-
-    if user.query_count_today >= limit:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Rate limit exceeded. You have used {user.query_count_today}/{limit} queries today.",
-            headers={
-                "X-RateLimit-Limit": str(limit),
-                "X-RateLimit-Remaining": "0",
-            },
-        )
-
-    user.query_count_today += 1
-    await db.commit()
-    return limit - user.query_count_today
+    return 999999

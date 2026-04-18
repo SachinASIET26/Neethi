@@ -231,7 +231,7 @@ cp .env.example .env
 # Edit .env and fill in your API keys
 
 # 6. Start the backend (port 8000)
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000 --loop asyncio
+uvicorn backend.main:app --reload --reload-dir backend --host 0.0.0.0 --port 8000 --loop asyncio
 
 # 7. Start the frontend (port 3000) — in a second terminal
 cd frontend && npm run dev
@@ -288,8 +288,10 @@ LOG_LEVEL=INFO
 ## Running Locally
 
 ```bash
-# Backend — development (auto-reload)
-uvicorn backend.main:app --reload --port 8000 --loop asyncio
+# Backend — development (auto-reload, only watches backend/ to avoid node_modules churn)
+uvicorn backend.main:app --reload --reload-dir backend --port 8000 --loop asyncio
+# IMPORTANT: --loop asyncio is required (CrewAI nest_asyncio incompatible with uvloop)
+# IMPORTANT: --reload-dir backend prevents reloader watching frontend/node_modules/
 
 # Backend — production (multi-worker)
 gunicorn backend.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000

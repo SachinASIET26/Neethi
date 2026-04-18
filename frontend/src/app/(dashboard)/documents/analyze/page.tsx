@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { createDocumentAnalysisStream } from "@/lib/api";
 import type { DocumentAnalysisResponse, PageIndexNode, PageIndexContentBlock } from "@/types";
 
@@ -225,10 +227,10 @@ export default function DocumentAnalyzePage() {
                 grounded · no hallucination
               </span>
             </div>
-            <div className="px-4 py-4">
-              <p className="text-sm text-gray-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
+            <div className="px-4 py-4 text-sm text-gray-800 dark:text-slate-200 leading-relaxed [&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-gray-900 [&_h1]:dark:text-white [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h2]:dark:text-white [&_h2]:mt-4 [&_h2]:mb-1.5 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h3]:dark:text-white [&_h3]:mt-3 [&_h3]:mb-1 [&_h4]:text-sm [&_h4]:font-medium [&_h4]:text-gray-900 [&_h4]:dark:text-white [&_h4]:mt-2 [&_h4]:mb-1 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_li]:mb-0.5 [&_strong]:font-semibold [&_strong]:text-gray-900 [&_strong]:dark:text-white [&_em]:italic [&_code]:font-mono [&_code]:text-xs [&_code]:bg-gray-100 [&_code]:dark:bg-slate-800 [&_code]:px-1 [&_code]:rounded [&_blockquote]:border-l-2 [&_blockquote]:border-primary/40 [&_blockquote]:pl-3 [&_blockquote]:text-gray-600 [&_blockquote]:dark:text-slate-400 [&_blockquote]:italic">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {result.synthesized_answer}
-              </p>
+              </ReactMarkdown>
             </div>
           </div>
 

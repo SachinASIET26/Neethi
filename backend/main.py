@@ -1,14 +1,19 @@
 """Neethi AI — FastAPI application entry point.
 
 Start the server:
-    uvicorn backend.main:app --reload --port 8000
+    uvicorn backend.main:app --reload --reload-dir backend --port 8000 --loop asyncio
 
 Or with Gunicorn (production):
     gunicorn backend.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000
+
+IMPORTANT FLAGS:
+    --loop asyncio      Required — CrewAI nest_asyncio cannot patch uvloop
+    --reload-dir backend  Required — prevents reloader watching frontend/node_modules/
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
@@ -23,6 +28,49 @@ try:
     load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 except ImportError:
     pass
+
+# ---------------------------------------------------------------------------
+# Redis reachability pre-check — MUST run before crewai is imported.
+#
+# CrewAI's lock_store.py reads REDIS_URL from os.environ at module import
+# time (eagerly, when 'import crewai' is called). If REDIS_URL is set but
+# Redis is unreachable, every crew.akickoff() raises "Error 111 connection
+# refused" because portalocker.RedisLock tries a synchronous connection.
+#
+# Fix: do a cheap synchronous socket probe here, before the crewai import
+# below. If Redis is unreachable, clear REDIS_URL so crewai falls back to
+# file-based locking. Our ResponseCache already has its own fallback logic
+# and is not affected by this unset.
+# ---------------------------------------------------------------------------
+def _probe_redis_reachable() -> bool:
+    """Return True if REDIS_URL is set and the host:port is TCP-reachable."""
+    import socket
+    url = os.getenv("REDIS_URL", "")
+    if not url:
+        return False
+    try:
+        # Parse host and port from redis:// or rediss:// URL
+        import urllib.parse
+        parsed = urllib.parse.urlparse(url)
+        host = parsed.hostname or "localhost"
+        port = parsed.port or 6379
+        with socket.create_connection((host, port), timeout=1):
+            return True
+    except Exception:
+        return False
+
+_redis_url_set = bool(os.getenv("REDIS_URL"))
+if _redis_url_set and not _probe_redis_reachable():
+    # Redis is configured but unreachable. Clear the env var so crewai's
+    # lock_store uses file-based locking instead of attempting Redis.
+    # ResponseCache will handle its own graceful fallback independently.
+    _removed_redis_url = os.environ.pop("REDIS_URL", None)
+    import logging as _log
+    _log.getLogger(__name__).warning(
+        "startup: REDIS_URL is set but Redis is unreachable — "
+        "clearing REDIS_URL so CrewAI uses file-based locking. "
+        "ResponseCache will use in-memory fallback."
+    )
 
 # NOTE: nest_asyncio is intentionally NOT applied here.
 # CrewAI v1.9.x internally calls nest_asyncio.apply() during akickoff().
@@ -59,6 +107,32 @@ async def lifespan(app: FastAPI):
     app.state.cache = cache
     cache_health = await cache.health()
     logger.info("Cache status: %s", cache_health.get("status", "unknown"))
+
+    # Pre-warm BGE-M3 embedder and CrossEncoder reranker in a thread executor.
+    # These models download on first use (~2.3 GB BGE-M3 + ~90 MB CrossEncoder)
+    # and take 10-15 seconds to load. Loading them here — before any request
+    # arrives — prevents the first streaming request from blocking mid-stream
+    # (which causes ECONNRESET on the Next.js proxy side).
+    loop = asyncio.get_event_loop()
+
+    def _warm_models():
+        try:
+            from backend.rag.embeddings import BGEM3Embedder
+            app.state.embedder = BGEM3Embedder()
+            logger.info("BGE-M3 embedder ready.")
+        except Exception as exc:
+            logger.warning("BGE-M3 warmup failed (non-fatal): %s", exc)
+            app.state.embedder = None
+
+        try:
+            from backend.rag.reranker import get_reranker
+            app.state.reranker = get_reranker()
+            logger.info("CrossEncoder reranker ready.")
+        except Exception as exc:
+            logger.warning("CrossEncoder warmup failed (non-fatal): %s", exc)
+            app.state.reranker = None
+
+    await loop.run_in_executor(None, _warm_models)
 
     logger.info("Neethi AI API ready.")
     yield

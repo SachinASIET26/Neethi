@@ -74,6 +74,8 @@ export default function DraftingWizardPage() {
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [includeCitations, setIncludeCitations] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState("");
 
   useEffect(() => {
     documentsAPI
@@ -109,6 +111,8 @@ export default function DraftingWizardPage() {
         include_citations: includeCitations,
       });
       setDraft(data);
+      setEditedText(data.draft_text);
+      setIsEditing(false);
       setStep(3);
       toast.success("Draft generated successfully!");
     } catch (err: unknown) {
@@ -379,14 +383,14 @@ export default function DraftingWizardPage() {
                   Export as PDF
                 </button>
                 <button
-                  onClick={() => { setStep(2); setDraft(null); }}
+                  onClick={() => { setStep(2); setDraft(null); setIsEditing(false); }}
                   className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 font-medium text-sm hover:bg-gray-50 dark:hover:bg-slate-800 transition-all"
                 >
                   <span className="material-symbols-outlined text-[18px]">edit</span>
-                  Edit Draft
+                  Regenerate Draft
                 </button>
                 <button
-                  onClick={() => { setStep(1); setSelectedTemplate(null); setDraft(null); setFields({}); }}
+                  onClick={() => { setStep(1); setSelectedTemplate(null); setDraft(null); setFields({}); setIsEditing(false); }}
                   className="w-full text-gray-500 dark:text-slate-500 text-sm hover:text-gray-800 dark:hover:text-slate-300 transition-colors py-1"
                 >
                   Start New Draft
@@ -408,6 +412,14 @@ export default function DraftingWizardPage() {
               </span>
             </div>
 
+            {/* Editing indicator */}
+            {isEditing && (
+              <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-300 font-sans z-10">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-[11px] font-semibold text-amber-600 uppercase tracking-wider">Editing</span>
+              </div>
+            )}
+
             {/* Document title */}
             <div className="text-center mb-10 space-y-1">
               <p className="font-bold uppercase text-base tracking-wide underline underline-offset-4">
@@ -416,9 +428,20 @@ export default function DraftingWizardPage() {
             </div>
 
             {/* Draft content */}
-            <div className="text-sm text-[#1a1a1a] leading-relaxed whitespace-pre-wrap">
-              {draft.draft_text}
-            </div>
+            {isEditing ? (
+              <textarea
+                value={editedText}
+                onChange={(e) => setEditedText(e.target.value)}
+                className="w-full text-sm text-[#1a1a1a] leading-relaxed font-serif bg-transparent border border-dashed border-amber-400/60 rounded focus:outline-none focus:border-amber-500 resize-none p-1 -m-1"
+                style={{ minHeight: "800px", fieldSizing: "content" } as React.CSSProperties}
+                spellCheck
+                autoFocus
+              />
+            ) : (
+              <div className="text-sm text-[#1a1a1a] leading-relaxed whitespace-pre-wrap">
+                {editedText || draft.draft_text}
+              </div>
+            )}
 
             {/* Footer */}
             <div className="absolute bottom-8 left-0 w-full text-center text-xs text-slate-400 font-sans">
@@ -452,7 +475,43 @@ export default function DraftingWizardPage() {
         {/* Floating toolbar */}
         {draft && (
           <div className="fixed bottom-6 right-6 flex flex-col gap-2">
-            {[
+            {isEditing ? (
+              <>
+                <button
+                  title="Save Changes"
+                  onClick={() => {
+                    setDraft((prev) => prev ? { ...prev, draft_text: editedText } : prev);
+                    setIsEditing(false);
+                    toast.success("Changes saved.");
+                  }}
+                  className="w-10 h-10 rounded-full bg-emerald-500 border border-emerald-400 text-white hover:bg-emerald-600 transition-all shadow-xl flex items-center justify-center"
+                >
+                  <span className="material-symbols-outlined text-[20px]">check</span>
+                </button>
+                <button
+                  title="Cancel Editing"
+                  onClick={() => {
+                    setEditedText(draft.draft_text);
+                    setIsEditing(false);
+                  }}
+                  className="w-10 h-10 rounded-full bg-red-500 border border-red-400 text-white hover:bg-red-600 transition-all shadow-xl flex items-center justify-center"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </>
+            ) : (
+              <button
+                title="Edit Document"
+                onClick={() => {
+                  setEditedText(draft.draft_text);
+                  setIsEditing(true);
+                }}
+                className="w-10 h-10 rounded-full bg-white/90 dark:bg-slate-800/90 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-primary hover:text-white hover:border-primary transition-all shadow-xl flex items-center justify-center"
+              >
+                <span className="material-symbols-outlined text-[20px]">edit</span>
+              </button>
+            )}
+            {!isEditing && [
               { icon: "zoom_in", title: "Zoom In" },
               { icon: "zoom_out", title: "Zoom Out" },
               { icon: "print", title: "Print" },
